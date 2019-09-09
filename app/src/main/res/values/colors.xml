@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="cl_btn_def_end">#30E1F7</color>
+    <color name="cl_btn_def_center">#23a7b6</color>
+    <color name="cl_btn_def_start">#163859</color>
+    <color name="cl_btn_press_end">#00ff0F</color>
+    <color name="cl_btn_press_center">#00FF80</color>
+    <color name="cl_btn_press_start">#00FFF0</color>
+    <color name="cl_btn_act_end">#F77127</color>
+    <color name="cl_btn_act_center">#d64b01</color>
+    <color name="cl_btn_act_start">#4e0d00</color>
+</resources>
+

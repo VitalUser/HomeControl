@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_sns_ren"
+        android:title="@string/msg_rename" />
+    <item
+        android:id="@+id/action_sns_setTemp"
+        android:title="@string/sns_is_Temp" />
+    <item
+        android:id="@+id/action_sns_setHum"
+        android:title="@string/sns_is_Hum" />
+    <item
+        android:id="@+id/action_sns_setPress"
+        android:title="@string/sns_is_Press" />
+    <item
+        android:id="@+id/action_update_sensors"
+        android:title="@string/sns_update" />
+    <item
+        android:id="@+id/action_btn_del"
+        android:title="@string/btn_item_Del" />
+    <item
+        android:id="@+id/action_cancel"
+        android:orderInCategory="10"
+        android:title="@string/cancel"/>
+</menu>

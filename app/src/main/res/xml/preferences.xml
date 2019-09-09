@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    xmlns:android="http://schemas.android.com/apk/res/android" >
+
+     <PreferenceCategory
+         android:title="@string/network_setting">
+
+         <EditTextPreference
+             android:key="key_udppass"
+             android:title="@string/pass"
+             android:inputType="number"
+             android:defaultValue="0"/>
+
+         <com.vital.homecontrol.IPpickerPreference
+             android:title="@string/pref_remIP"
+             android:key="key_remIP"/>
+
+         <CheckBoxPreference
+             android:title="@string/checkboxitem"
+             android:defaultValue="true"
+             android:key="id_cb_WorkWiFi" />
+
+         <EditTextPreference
+             android:key="key_timeout"
+             android:title="@string/timeout"
+             android:inputType="number"
+             android:defaultValue="500"/>
+
+     </PreferenceCategory>
+
+    <!--
+    <PreferenceScreen
+            android:key="key_net_setting"
+            android:title="@string/network_setting">
+    </PreferenceScreen>
+    -->
+
+    <PreferenceCategory
+        android:title="@string/screen_settings">
+
+        <ListPreference
+            android:key="key_theme"
+            android:title="@string/theme_choice"
+            android:entries="@array/theme_array"
+            android:entryValues="@array/theme_values"
+            android:defaultValue="Light"
+            android:summary="This preference allows to select theme"/>
+
+    </PreferenceCategory>
+
+
+
+    <PreferenceScreen
+            android:key="key_screen_size_setting"
+            android:title="@string/screen_size_settings">
+
+        <PreferenceCategory
+                android:title="@string/Portrait">
+
+                <EditTextPreference
+                    android:key="key_rowsCount_P"
+                    android:title="@string/Rows_count"
+                    android:inputType="number"
+                    android:defaultValue="6"
+                    />
+                <EditTextPreference
+                    android:key="key_colsCount_P"
+                    android:title="@string/Columns_count"
+                    android:inputType="number"
+                    android:defaultValue="4"
+                    />
+        </PreferenceCategory>
+
+        <PreferenceCategory
+                android:title="@string/landscape">
+
+                <EditTextPreference
+                    android:key="key_rowsCount_L"
+                    android:title="@string/Rows_count"
+                    android:inputType="number"
+                    android:defaultValue="4"
+                    />
+                <EditTextPreference
+                    android:key="key_colsCount_L"
+                    android:title="@string/Columns_count"
+                    android:inputType="number"
+                    android:defaultValue="6"
+                    />
+        </PreferenceCategory>
+
+        <PreferenceCategory
+            android:title="@string/buttons">
+
+            <EditTextPreference
+                android:key="key_button_padding"
+                android:title="@string/padding"
+                android:inputType="number"
+                android:defaultValue="2"
+                />
+
+        </PreferenceCategory>
+
+    </PreferenceScreen>
+
+    <PreferenceCategory
+        android:title="@string/files_paths">
+
+        <ListPreference
+            android:key="key_names"
+            android:title="Names"/>
+
+    </PreferenceCategory>
+
+
+
+    <!--
+    <PreferenceCategory
+        android:title="@string/prefs_Title_2">
+
+        <EditTextPreference
+            android:key="@string/pref_Edit"
+            android:title="@string/edit_title"
+            android:defaultValue="10"
+            android:background="@color/colorPrimary"
+            />
+
+    </PreferenceCategory>
+    -->
+
+</PreferenceScreen>

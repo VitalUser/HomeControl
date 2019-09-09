@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_tbl_add_new_btn"
+        android:orderInCategory="1"
+        android:title="@string/tbl_add_button"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_tbl_add_sensor"
+        android:orderInCategory="2"
+        android:title="@string/tbl_add_sensor"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_tbl_add_exist_btn"
+        android:orderInCategory="3"
+        android:title="@string/tbl_add_exist_btn"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_cancel"
+        android:orderInCategory="10"
+        android:title="@string/cancel"
+        app:showAsAction="never" />
+</menu>

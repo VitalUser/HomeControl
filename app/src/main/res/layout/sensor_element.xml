@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sns_element"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:id="@+id/sns_text_group"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_weight="3">
+
+        <TextView
+            android:id="@+id/sns_num"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Sensor number"
+            android:layout_weight="6"
+            android:textSize="8dp"/>
+
+        <TextView
+            android:id="@+id/sns_text"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Sensor text"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            android:layout_weight="2"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_weight="6">
+
+        <TextView
+            android:id="@+id/sns_data"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="00"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:gravity="center"/>
+    </LinearLayout>
+</LinearLayout>

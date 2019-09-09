@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="btn_devNum" type="id"/>
+    <item name="btn_OutMask" type="id"/>
+    <item name="ctr_index" type="id"/>
+    <item name="btn_cmd" type="id"/>
+    <item name="sns_typ" type="id" />
+</resources>

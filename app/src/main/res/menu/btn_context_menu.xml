@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_btn_ren"
+        android:title="@string/msg_rename" />
+    <item
+        android:id="@+id/action_btn_setCommand"
+        android:title="@string/set_cmd_num" />
+    <item
+        android:id="@+id/action_btn_setLastChange"
+        android:title="@string/set_last_change" />
+    <item
+        android:id="@+id/action_btn_del"
+        android:title="@string/btn_item_Del" />
+    <item
+        android:id="@+id/action_cancel"
+        android:orderInCategory="10"
+        android:title="@string/cancel"/>
+</menu>
