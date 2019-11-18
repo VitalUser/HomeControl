@@ -616,6 +616,8 @@ public class MainActivity extends AppCompatActivity {
             netInfo = connMgr.getActiveNetworkInfo();
             workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
 
+
+
             if (netInfo != null){
                 titleStr = " connected "+ netInfo.getTypeName();
                 setTitle(getString(R.string.app_name)  + titleStr);

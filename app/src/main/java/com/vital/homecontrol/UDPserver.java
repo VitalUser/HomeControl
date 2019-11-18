@@ -119,6 +119,7 @@ public class UDPserver {
                             }
                         }else{
 
+                            recvBuff=Arrays.copyOf(inData, inData.length);
                             Log.i(TAG, " Packet received, but pass mismatch: got "+ Integer.toHexString(ps).toUpperCase() +
                                                 ", need " + Integer.toHexString(pass).toUpperCase());
                             Intent intent = new Intent(UDP_PACKET_RCV);
@@ -141,6 +142,7 @@ public class UDPserver {
         hostCmd=hCmd;
         devCmd=dCmd;
         confirmOk=false;
+        packetUDPok=false;
 //        Log.i(TAG, " UDPserver(send): hostCmd="+hostCmd+", devCmd="+devCmd +", "+ hashCode());
         new Thread(new Runnable() {
             @Override
@@ -179,6 +181,7 @@ public class UDPserver {
     }
 
     void sendUdpPacket(final byte[] buffer, final int len, final String ip, final int port){
+        packetUDPok=false;
         new Thread(new Runnable() {
             @Override
             public void run() {

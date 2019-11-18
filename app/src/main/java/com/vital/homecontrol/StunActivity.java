@@ -1,11 +1,14 @@
 package com.vital.homecontrol;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.PersistableBundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
@@ -16,6 +19,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.util.Arrays;
@@ -36,10 +40,17 @@ public class StunActivity extends AppCompatActivity {
     TextView test3;
     TextView test4;
     TextView natType;
+    TextView tvOutIP;
+    ProgressBar prBar;
 
     private String changedIP = "";
     private int changedPort = 0;
     private int rcvID = 0;
+    byte[] inBuf;
+    String stMA = "";
+    String stSA = "";
+    String stCA = "";
+    String stXA = "";
 
     Boolean udpRecieverRegistered = false;
 
@@ -71,6 +82,9 @@ public class StunActivity extends AppCompatActivity {
         test3 = (TextView)findViewById(R.id.tv_STUNtest3);
         test4 = (TextView)findViewById(R.id.tv_STUNtest4);
         natType = (TextView)findViewById(R.id.tv_STUN_Type);
+        tvOutIP = (TextView)findViewById(R.id.tv_OutIP);
+
+        prBar = (ProgressBar)findViewById(R.id.prBar_STUN);
 
         startSTUN = (Button)findViewById(R.id.btn_startStun);
         startSTUN.setOnClickListener(new View.OnClickListener() {
@@ -110,9 +124,27 @@ public class StunActivity extends AppCompatActivity {
             }
     }
 
+    private Boolean gotResponce(String ip, int port, byte param){
+        int att = 0;
+        while ((att<8) && (!sendRequest(ip, port, param))){
+            att++;
+        }
+        return (att<8);
+    }
+
     private void checkSTUN(){
         String defIP = "216.93.246.18";
         int defPort = 3478;
+        prBar.setVisibility(View.VISIBLE);
+        test1.setText("");
+        test2.setText("");
+        test3.setText("");
+        test4.setText("");
+        natType.setText("");
+        tvOutIP.setText("");
+        final String ip = defIP;
+        final int port = defPort;
+
 
         if (sUDP == null) {
             sUDP = new UDPserver(this, "", 0, 55550, 0);
@@ -120,19 +152,105 @@ public class StunActivity extends AppCompatActivity {
             sUDP.start();
         }
 
-        int att = 0;
-        while ((att<8) && (!sendRequest(defIP, defPort, (byte) 0))){
-            att++;
-        }
-        if (att<8){
-            test1.setText(String.valueOf(changedPort) );
-            test2.setText(changedIP);
-        }
-        test3.setText(String.valueOf(att));
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Bundle bundle = new Bundle();
+                Message msg0 = handler.obtainMessage();
+                if (gotResponce(ip, port, (byte) 0)){
+//                    test1.setText("Test 1 pass");
+                    Message msgMA = handler.obtainMessage();
+                    bundle.putString("OutIP", stMA);
+                    msgMA.setData(bundle);
+                    handler.sendMessage(msgMA);
+                    Message msg = handler.obtainMessage();
+                    bundle.putString("Test1", "Test 1 pass");
+                    msg.setData(bundle);
+                    handler.sendMessage(msg);
+                    String map1 = stMA;
+                    Message msg1 = handler.obtainMessage();
+                    if (!gotResponce(ip, port, (byte) 6)){
+//                        test2.setText("Test 2 fail");
+                        bundle.putString("Test2", "Test 2 fail");
+                        msg1.setData(bundle);
+                        handler.sendMessage(msg1);
+                        gotResponce(changedIP, changedPort, (byte) 0);
+                        Message msg2 = handler.obtainMessage();
+                        if (stMA.equals(map1)){
+//                            test3.setText("Test 3 pass");
+                            bundle.putString("Test3", "Test 3 pass");
+                            msg2.setData(bundle);
+                            handler.sendMessage(msg2);
+                            Message msg3 = handler.obtainMessage();
+                            if (gotResponce(ip, port, (byte) 2)){
+//                                test4.setText("Test 4 pass");
+                                bundle.putString("Test4", "Test 4 pass");
+                                msg3.setData(bundle);
+                                handler.sendMessage(msg3);
+//                                natType.setText("Address restricted NAT");
+                                bundle.putString("NatType", "Address restricted NAT");
+                            }else{
+//                                test3.setText("Test 4 fail");
+                                bundle.putString("Test4", "Test 4 fail");
+                                msg3.setData(bundle);
+                                handler.sendMessage(msg3);
+ //                               natType.setText("Port restricted NAT");
+                                bundle.putString("NatType", "Port restricted NAT");
+                            }
+                        }else{
+//                            test3.setText("Test 3 fail");
+                            bundle.putString("Test3", "Test 3 fail");
+                            msg2.setData(bundle);
+                            handler.sendMessage(msg2);
+ //                           natType.setText("Symmetric NAT");
+                            bundle.putString("NatType", "Symmetric NAT");
+                        }
+                    }else{
+                        bundle.putString("Test2", "Test 2 pass");
+                        msg1.setData(bundle);
+                        handler.sendMessage(msg1);
+//                        natType.setText("Full cone NAT");
+                        bundle.putString("NatType", "Full cone NAT");
+                    }
+                }else{
+//                    natType.setText("UDP blocked");
+                    bundle.putString("NatType", "UDP blocked");
+                }
+                msg0.setData(bundle);
+                handler.sendMessage(msg0);
 
 
+            }
+        }).start();
 
     }
+
+    @SuppressLint("HandlerLeak")
+    Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            Bundle bundle = msg.getData();
+            if (bundle.getString("Test1")!=null){
+                test1.setText(bundle.getString("Test1"));
+            }
+            if (bundle.getString("Test2")!=null){
+                test2.setText(bundle.getString("Test2"));
+            }
+            if (bundle.getString("Test3")!=null){
+                test3.setText(bundle.getString("Test3"));
+            }
+            if (bundle.getString("Test4")!=null){
+                test4.setText(bundle.getString("Test4"));
+            }
+            if (bundle.getString("NatType")!=null){
+                prBar.setVisibility(View.INVISIBLE);
+                natType.setText(bundle.getString("NatType"));
+            }
+            if (bundle.getString("OutIP")!=null){
+                tvOutIP.setText(bundle.getString("OutIP"));
+            }
+        }
+    };
 
     private boolean sendRequest(String ip, int port, byte param){
         rcvID=0;
@@ -148,10 +266,10 @@ public class StunActivity extends AppCompatActivity {
         buf[1]=1;
         buf[18]= (byte) 0xFF;
         buf[19]= param ;
-        sUDP.sendUdpPacket(buf, 20, ip, port);
 
+        sUDP.sendUdpPacket(buf, 20, ip, port);
         int att = 0;
-        while ((!sUDP.getPacketOk())&(att<100)){
+        while ((!sUDP.getPacketOk())&&(att<200)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {
@@ -159,14 +277,19 @@ public class StunActivity extends AppCompatActivity {
             }
             att++;
         }
-        Log.i(TAG, " waitForConfirm, time = " + att + "mS");
-        return (att<100);
+        Log.i(TAG, " SendPacket, time = " + att + "mS");
+
+        if (att<200){
+            parceUDPpacket(sUDP.getRBuffer());
+        }
+
+        return (att<200);
     }
 
     private BroadcastReceiver udpReciever = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            byte[] inBuf = intent.getByteArrayExtra("UDPpacket");
+            inBuf = intent.getByteArrayExtra("UDPpacket");
             if ((inBuf != null) && (inBuf.length > 0)) {
                 Log.i(TAG, " onReceive in STUN" );
                 parceUDPpacket(inBuf);
@@ -185,10 +308,10 @@ public class StunActivity extends AppCompatActivity {
             int len = buf[2]*0x100+buf[3];
             if (len>0){
                 int ofs = 20;
-                String stMA = "";
-                String stSA = "";
-                String stCA = "";
-                String stXA = "";
+                stMA = "";
+                stSA = "";
+                stCA = "";
+                stXA = "";
                 while (ofs<len){
                     switch (buf[ofs]*0x100+buf[ofs+1]){
                         case 0x0001:

@@ -20,6 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="invisible"
+        android:id="@+id/prBar_STUN"
         />
 
     <TextView
@@ -50,6 +51,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/tv_STUN_Type"
+        />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/tv_OutIP"
         />
 
     <Button
