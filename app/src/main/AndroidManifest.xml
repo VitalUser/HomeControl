@@ -31,6 +31,9 @@
         <activity
             android:name=".StatActivity"
             android:label="@string/msg_statistic"/>
+        <activity
+            android:name=".StunActivity"
+            android:label="@string/checkNAT"/>
     </application>
 
 </manifest>

@@ -30,4 +30,10 @@
         android:title="@string/setting"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_nat"
+        android:orderInCategory="6"
+        android:title="@string/checkNAT"
+        app:showAsAction="never" />
+
 </menu>

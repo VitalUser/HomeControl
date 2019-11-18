@@ -30,6 +30,9 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         IPpickerPreference iPpickerPreference = (IPpickerPreference) findPreference("key_remIP");
         iPpickerPreference.setSummary((CharSequence) iPpickerPreference.getIp());
 
+        EditTextPreference port = (EditTextPreference) findPreference("key_port");
+        port.setSummary(port.getText());
+
         EditTextPreference timeout = (EditTextPreference) findPreference("key_timeout");
         timeout.setSummary(timeout.getText());
 
@@ -93,6 +96,10 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
             case "key_remIP":
                 IPpickerPreference iPpickerPreference = (IPpickerPreference) findPreference(s);
                 iPpickerPreference.setSummary((CharSequence) iPpickerPreference.getIp());
+                break;
+            case "key_port":
+                EditTextPreference port = (EditTextPreference) findPreference(s);
+                port.setSummary(port.getText());
                 break;
             case "key_theme":
                 ListPreference theme = (ListPreference) findPreference(s);

@@ -16,6 +16,12 @@
              android:title="@string/pref_remIP"
              android:key="key_remIP"/>
 
+         <EditTextPreference
+             android:key="key_port"
+             android:title="@string/port"
+             android:inputType="number"
+             android:defaultValue="55555"/>
+
          <CheckBoxPreference
              android:title="@string/checkboxitem"
              android:defaultValue="true"

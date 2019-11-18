@@ -1,6 +1,7 @@
 package com.vital.homecontrol;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -11,11 +12,15 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.os.Parcelable;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -25,11 +30,19 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
 import android.support.design.widget.TabLayout;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -53,6 +66,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.Thread.currentThread;
 import static java.lang.Thread.sleep;
 
 
@@ -68,7 +82,8 @@ public class MainActivity extends AppCompatActivity {
 
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
-    static final int devPort = 55555;
+    static final int RK_STUN = 1002;
+    public int devPort = 55555;
     static final int localPort = 55550;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
@@ -80,6 +95,8 @@ public class MainActivity extends AppCompatActivity {
     static final String STATE_DESTIP = "DestIP";
     static final String STATE_LASTSMD = "LastDevNum";
     static final String STATE_LASTCHNG = "LastChange";
+
+    static final int STUN_RESPONCE = 0x0101;
 
     static final int ASK_IP                     =  0x01;
     static final int ASK_COUNT_DEVS             =  0x04;
@@ -134,6 +151,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     ViewPager viewPager;
+    ProgressBar pBar;
     RoomAdapter roomAdapter;
     TabLayout tabLayout;
     TextView statusText;
@@ -178,6 +196,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
 
         theme = prefs.getString("key_theme", "");
         switch (theme){
@@ -273,6 +292,7 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
+        pBar = findViewById(R.id.progressBar);
         statusText = findViewById(R.id.status_text);
         statusText.setText("");
         destIPtext = findViewById(R.id.target_IP_text);
@@ -302,6 +322,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -474,6 +495,12 @@ public class MainActivity extends AppCompatActivity {
                 intent.setClass(this, SettingActivity.class);
                 startActivityForResult(intent, RK_SETTING);
                 return true;
+
+            case R.id.action_nat:
+                Intent intStun = new Intent();
+                intStun.setClass(this, StunActivity.class);
+//                startActivityForResult(intStun, RK_STUN);
+                startActivity(intStun);
         }
         return super.onOptionsItemSelected(item);
     }
@@ -715,36 +742,67 @@ public class MainActivity extends AppCompatActivity {
         return "";
     }
 
+    /*  Variant with AsyncTask
+    public class ConnectTask extends AsyncTask<String, Integer, Boolean> {
+
+
+        @Override
+        protected Boolean doInBackground(String... strings) {
+            return null;
+        }
+    }
+    */
+
     private void connectToHost(){
 
         destIPtext.setText(getString(R.string.connecting));
         connected = false;
 
+        devPort = Integer.parseInt(prefs.getString("key_port", "55555"));
 //        deviceIP = stringIP(getBroadcastWiFiIP());
         if (sUDP!=null){
             sUDP.setDestIP(deviceIP);
+            sUDP.setDestPort(devPort);
         }
+
+        pBar.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        pBar.setVisibility(View.VISIBLE);
 
         new  Thread(new Runnable() {
             @Override
             public void run() {
 //                sendUI_Msg("", "", "", "connecting...");
+
+                Log.i(TAG, " Create connecting thread: "+currentThread() );
+                Message msg = handler.obtainMessage();
+                Bundle bundle = new Bundle();
                 byte[] outBuf = {ASK_IP};
                 if (askUDP(outBuf, MSG_ANSW_IP, 0)){
                     deviceIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
                     Log.i(TAG, " got answer IP: "+deviceIP );
                     connected = true;
-                    sendUI_Msg("", "", "", deviceIP);
+//                    sendUI_Msg("", "", "", deviceIP);
+                    bundle.putString("Taget", deviceIP);
+                    msg.setData(bundle);
+                    handler.sendMessage(msg);
+
                     sUDP.setDestIP(deviceIP);
                 }else{
                     if (askUDP(outBuf, MSG_ANSW_IP, 0)){
                         deviceIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
                         Log.i(TAG, " got answer IP: "+deviceIP );
                         connected = true;
-                        sendUI_Msg("", "", "", deviceIP);
+//                    sendUI_Msg("", "", "", deviceIP);
+                        bundle.putString("Taget", deviceIP);
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);
+
                         sUDP.setDestIP(deviceIP);
                     }else {
-                        sendUI_Msg("", "", "", getString(R.string.noIP));
+//                        sendUI_Msg("", "", "", getString(R.string.noIP));
+                        bundle.putString("Taget", getString(R.string.noIP));
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);
                     }
                 }
                 if (connected){
@@ -761,7 +819,10 @@ public class MainActivity extends AppCompatActivity {
                             askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
                         }
                     }else{
-                        sendUI_Msg("", "No answer List Device", "", "");
+//                        sendUI_Msg("", "No answer List Device", "", "");
+                        bundle.putString("Status", "No answer List Device");
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);
                     }
 
                     outBuf[0] = ASK_COUNT_SENSORS;
@@ -802,16 +863,89 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-                    sendUI_Msg("", "", getString(R.string.connected), "");
+//                    sendUI_Msg("", "", getString(R.string.connected), "");
+                    bundle.putString("Toast", getString(R.string.connected));
+                    Message msg1 = handler.obtainMessage();
+                    msg1.setData(bundle);
+                    handler.sendMessage(msg1);
                 }
                 Log.i(TAG, "Connected is "+ connected+ ", Send BR_MSG_END_CONNECTING");
-                sendUI_Msg(BR_MSG_END_CONNECTING);
+//                sendUI_Msg(BR_MSG_END_CONNECTING);
+                bundle.putInt("ThreadEnd", BR_MSG_END_CONNECTING);
+                Message msg2 = handler.obtainMessage();
+                msg2.setData(bundle);
+                handler.sendMessage(msg2);
 
             }
-        }).run();
+        }).start();
 
 
     }
+
+    @SuppressLint("HandlerLeak")
+    Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            Bundle bundle = msg.getData();
+            String status = bundle.getString("Status");
+            String localIP = bundle.getString("Local");
+            String tagetIP = bundle.getString("Taget");
+            String toastText = bundle.getString("Toast");
+            if (status!=null){
+                if (!status.equals("")){
+                    statusText.setText(status);
+                }
+            }
+           if (localIP!=null){
+               if (!localIP.equals("")){
+                   localIPtext.setText(localIP);
+               }
+           }
+           if (tagetIP!=null){
+               if (!tagetIP.equals("")){
+                   destIPtext.setText(tagetIP);
+               }
+           }
+           if (toastText!=null){
+               if (!toastText.equals("")){
+                   Toast.makeText(getApplicationContext(), toastText, Toast.LENGTH_SHORT).show();
+               }
+           }
+           int state = bundle.getInt("ThreadEnd", 0);
+           if (state==BR_MSG_END_CONNECTING){
+               Log.i(TAG, " get BR_MSG_END_CONNECTING");
+               pBar.setVisibility(View.INVISIBLE);
+               pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
+               if (connected){
+                   Calendar cl = Calendar.getInstance();
+                   byte[] buffTime = new  byte[9];
+                   buffTime[0] = CMD_SET_TIME;
+                   int dw = cl.get(Calendar.DAY_OF_WEEK);
+                   buffTime[1] = (byte) (dw==0 ? 7 : dw-1);
+                   buffTime[2] = (byte) ((cl.get(Calendar.YEAR)>>8)&0xFF);
+                   buffTime[3] = (byte) (cl.get(Calendar.YEAR)&0xFF);
+                   buffTime[4] = (byte) (cl.get(Calendar.MONTH)+1);
+                   buffTime[5] = (byte) cl.get(Calendar.DAY_OF_MONTH);
+                   buffTime[6] = (byte) cl.get(Calendar.HOUR_OF_DAY);
+                   buffTime[7] = (byte) cl.get(Calendar.MINUTE);
+                   buffTime[8] = (byte) cl.get(Calendar.SECOND);
+                   askUDP(buffTime, MSG_RCV_OK, 0);
+
+
+                   devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
+                   sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
+                   statusText.setText(R.string.connected);
+                   for (int i = 0; i <execDevs.size() ; i++) {
+                       byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
+                       askUDP(bufState, MSG_RE_SENT_W, MSG_STATE);
+                   }
+               }else{
+                   statusText.setText(R.string.no_connect);
+               }
+
+           }
+        }
+    };
 
 
     private void parceFromHub(byte[] buf){
@@ -926,6 +1060,29 @@ public class MainActivity extends AppCompatActivity {
         askUDP(bufState, MSG_RCV_OK, 0);
     }
 
+    public void drawRcvStatus(int attempt, boolean result){
+        final SpannableStringBuilder text = new SpannableStringBuilder("*****");
+        final ForegroundColorSpan styleRed = new ForegroundColorSpan(Color.rgb(255, 0, 0));
+        final ForegroundColorSpan styleGreen = new ForegroundColorSpan(Color.rgb(0, 255, 0));
+        final ForegroundColorSpan styleGrey = new ForegroundColorSpan(Color.rgb(32, 32, 32));
+        if (result){
+            text.setSpan(styleRed, 0, attempt-1, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            text.setSpan(styleGreen, attempt-1, attempt, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            text.setSpan(styleGrey, attempt+1, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+
+        }else{
+            if (attempt==0){
+                text.setSpan(styleGrey, 0, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            }else{
+                text.setSpan(styleRed, 0, attempt, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+                text.setSpan(styleGrey, attempt+1, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            }
+
+        }
+        statusText.setText(text);
+
+    }
+
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (sUDP == null) {
@@ -938,6 +1095,7 @@ public class MainActivity extends AppCompatActivity {
         curID++;
         sUDP.setCurrentID((byte) curID);
         int att;
+//        drawRcvStatus(0, false);
         for (int i = 1; i <4 ; i++) {
             if (hostCmd==MSG_RCV_OK){
                 att=i;
@@ -947,6 +1105,7 @@ public class MainActivity extends AppCompatActivity {
             sUDP.send(inBuf, inBuf.length, (byte) att, hostCmd, devCmd);
             if (waitForConfirm(Integer.parseInt(prefs.getString("key_timeout", "500")))){
                 Log.i(TAG, " askUDP : confirm "+Integer.toHexString(hostCmd)+ " :" + i);
+//                drawRcvStatus(i, true);
                 return true;
             }
         }
@@ -954,6 +1113,7 @@ public class MainActivity extends AppCompatActivity {
 //        sendStatusText("No answer to " + byteArrayToHex(inBuf, inBuf.length));
         Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
         sendUI_Msg("", "No answer to " + byteArrayToHex(inBuf, inBuf.length), getString(R.string.no_answer), "");
+//        drawRcvStatus(3, false);
         return false;
     }
 
@@ -993,6 +1153,34 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    private void parceUDPpacket(byte[] buf){
+        int twobytes = buf[0]*0x100+buf[1]&0xFF;
+        if (twobytes==STUN_RESPONCE){
+            int len = buf[2]*0x100+buf[3]&0xFF;
+                if (len>0){
+                    int ofs = 20;
+                    String stMA = "";
+                    String stSA = "";
+                    String stCA = "";
+                    String stXA = "";
+                    while (ofs<len){
+                        switch (buf[ofs]*0x100+buf[ofs+1]&0xFF){
+                            case 0x0001:
+                                stMA= String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8]);
+                                stMA=stMA+":"+String.valueOf(buf[ofs+6]+0x100+buf[7]&0xFF);
+                                break;
+                        }
+                        ofs=ofs+buf[ofs+2]*0x100+buf[ofs+3]&0xFF+4;
+
+                    }
+                    statusText.setText(stMA);
+                }
+
+        }
+    }
+
+
+
 
 
     //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1001,9 +1189,16 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
 //            int attempt = intent.getIntExtra("Attempt", 0);
             byte[] inBuf = intent.getByteArrayExtra("Buffer");
-            Log.i(TAG, " onReceive in Main: inbuf: = "+byteArrayToHex(inBuf, inBuf.length));
-//            udpRecieved=true;
-            parceFromHub(inBuf);
+            if ((inBuf!=null) && (inBuf.length>0)){
+                Log.i(TAG, " onReceive in Main: inbuf: = "+byteArrayToHex(inBuf, inBuf.length));
+                parceFromHub(inBuf);
+            }
+
+            byte[] udpPacket = intent.getByteArrayExtra("UDPpacket");
+            if ((udpPacket!=null) && (udpPacket.length>0)){
+                parceUDPpacket(inBuf);
+
+            }
         }
     };
 
@@ -1038,6 +1233,8 @@ public class MainActivity extends AppCompatActivity {
             switch (msgID){
                 case BR_MSG_END_CONNECTING:
                     Log.i(TAG, " get BR_MSG_END_CONNECTING");
+                    pBar.setVisibility(View.INVISIBLE);
+                    pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
                     if (connected){
                         Calendar cl = Calendar.getInstance();
                         byte[] buffTime = new  byte[9];

@@ -59,11 +59,14 @@
     <string name="humidity">Влажность</string>
     <string name="pressure">Давление</string>
     <string name="msg_statistic">Статистика</string>
-    <string name="time">Time</string>
+    <string name="time">Время</string>
     <string name="period">Период отсчетов</string>
     <string name="min_graph">Минимум графика</string>
     <string name="max_graph">Максимум графика</string>
     <string name="timeout">Таймаут, мС</string>
     <string name="buttons">Кнопки</string>
     <string name="padding">Отступ</string>
+    <string name="port">Порт</string>
+    <string name="checkNAT">Check NAT type</string>
+    <string name="Start">Start</string>
 </resources>

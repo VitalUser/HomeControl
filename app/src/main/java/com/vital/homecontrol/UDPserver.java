@@ -16,6 +16,7 @@ public class UDPserver {
 
     private static final String TAG = "MyclassUDPserver";
     private static final String UDP_RCV = "UDP_received";
+    private static final String UDP_PACKET_RCV = "UDP_PacketReceived";
 
     private static final int MSG_RCV_OK      =  0xA5;
     private static final int NO_CONFIRM      =  0xFF;
@@ -28,8 +29,9 @@ public class UDPserver {
     private byte lastID;
     private byte currentID;
     public int hostCmd;
-    public int devCmd;
-    boolean confirmOk;
+    int devCmd;
+    private boolean confirmOk;
+    private boolean packetUDPok;
     private boolean listen;
 
     private byte[] recvBuff;
@@ -46,6 +48,7 @@ public class UDPserver {
         this.currentID = 1;
 //        this.recieved = false;
         this.confirmOk = false;
+        this.packetUDPok = false;
         this.hostCmd = 0;
         this.devCmd = 0;
         this.listen = false;
@@ -61,6 +64,7 @@ public class UDPserver {
             public void run() {
                 try {
                     confirmOk = false;
+                    packetUDPok = false;
                     DatagramSocket sUDP = new DatagramSocket(null);
                     sUDP.setReuseAddress(true);
                     sUDP.bind(new InetSocketAddress(localPort));
@@ -69,19 +73,20 @@ public class UDPserver {
                         DatagramPacket inUDP = new DatagramPacket(inData, inData.length);
                         sUDP.receive(inUDP);
                         int len = inUDP.getLength();
+                        packetUDPok = (len>0);
                         int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
                         if (ps==pass){
                             if ((inData[3]&0xFF)!=lastID){
                                 recvBuff = Arrays.copyOfRange(inData,7,len);
                                 lastID= (byte) (inData[3]&0xFF);
 //                                recieved = true;
-                                Log.i(TAG, " UDPserver: in:  "+ byteArrayToHex(inData, len));
+                                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
 
                                 String st;
                                 if (recvBuff.length>3){
-                                    st=" UDPserver(in): recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd+", recvBuff[3]="+(recvBuff[3]&0xFF)+", devCmd="+devCmd;
+                                    st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd+", recvBuff[3]="+(recvBuff[3]&0xFF)+", devCmd="+devCmd;
                                 }else{
-                                    st=" UDPserver(in): recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd;
+                                    st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd;
                                 }
                                 Log.i(TAG, st +", "+ hashCode());
 
@@ -96,7 +101,7 @@ public class UDPserver {
                                         }
                                     }
                                 }
-                                Log.i(TAG, " UDPserver: confirmOk = "+ confirmOk);
+                                Log.i(TAG, " In: confirmOk = "+ confirmOk);
                                 if (recvBuff[0]!=(byte)MSG_RCV_OK){
                                     Intent intent = new Intent(UDP_RCV);
                                     intent.putExtra("Buffer", recvBuff);
@@ -104,20 +109,24 @@ public class UDPserver {
                                     if ((inData[4]&0xFF)!=NO_CONFIRM){
                                         currentID++;
                                         byte[] buf = {(byte) MSG_RCV_OK};
-                                        Log.i(TAG, " UDPserver: sentOk to "+(inData[4]&0xFF));
+                                        Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
                                         send(buf, buf.length, (byte) NO_CONFIRM, 0, 0);
                                     }
                                 }
                             }
                             else{
-                                Log.i(TAG, " UDPserver: receive repeat:  "+ inData[4]);
+                                Log.i(TAG, " Receive repeat:  "+ inData[4]);
                             }
                         }else{
+
                             Log.i(TAG, " Packet received, but pass mismatch: got "+ Integer.toHexString(ps).toUpperCase() +
                                                 ", need " + Integer.toHexString(pass).toUpperCase());
+                            Intent intent = new Intent(UDP_PACKET_RCV);
+                            intent.putExtra("UDPpacket", inData);
+                            LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
                         }
                     }
-                    Log.i(TAG, " UDPserver.listen = " + listen);
+                    Log.i(TAG, " Listen = " + listen);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -146,13 +155,42 @@ public class UDPserver {
                 outData[4] = attempt;
                 outData[5] = 0;
                 outData[6] = 0;
-                Log.i(TAG, " UDPserver: out: "+  byteArrayToHex(outData, outData.length));
+                String msg = destIP;
+                Log.i(TAG, " Out: "+  destIP + " : "+destPort);
+                Log.i(TAG, " Out: "+  byteArrayToHex(outData, outData.length));
 
                 try {
                     socketUDP = new DatagramSocket(null);
                     socketUDP.setReuseAddress(true);
                     socketUDP.bind(new InetSocketAddress(localPort));
                     DatagramPacket outUDP = new DatagramPacket(outData, outData.length, InetAddress.getByName(destIP), destPort);
+                    socketUDP.send(outUDP);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    if (socketUDP != null){
+                        socketUDP.close();
+                    }
+                }
+            }
+        }).start();
+
+    }
+
+    void sendUdpPacket(final byte[] buffer, final int len, final String ip, final int port){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                DatagramSocket socketUDP = null;
+                Log.i(TAG, " Out: "+  ip + " : "+port);
+                Log.i(TAG, " Out: "+  byteArrayToHex(buffer, buffer.length));
+
+                try {
+                    socketUDP = new DatagramSocket(null);
+                    socketUDP.setReuseAddress(true);
+                    socketUDP.bind(new InetSocketAddress(localPort));
+                    DatagramPacket outUDP = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(ip), port);
                     socketUDP.send(outUDP);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -183,6 +221,10 @@ public class UDPserver {
         return this.confirmOk;
     }
 
+    public boolean getPacketOk(){
+        return this.packetUDPok;
+    }
+
 
     public byte getCurrentID(){
         return this.currentID;
@@ -199,6 +241,10 @@ public class UDPserver {
 
     public void setPass(int pass){
         this.pass=pass;
+    }
+
+    public void setDestPort(int port){
+        this.destPort=port;
     }
 
 
