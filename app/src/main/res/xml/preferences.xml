@@ -10,6 +10,7 @@
              android:key="key_udppass"
              android:title="@string/pass"
              android:inputType="number"
+             android:selectAllOnFocus="true"
              android:defaultValue="0"/>
 
          <com.vital.homecontrol.IPpickerPreference
@@ -20,6 +21,7 @@
              android:key="key_port"
              android:title="@string/port"
              android:inputType="number"
+             android:selectAllOnFocus="true"
              android:defaultValue="55555"/>
 
          <CheckBoxPreference
@@ -31,6 +33,7 @@
              android:key="key_timeout"
              android:title="@string/timeout"
              android:inputType="number"
+             android:selectAllOnFocus="true"
              android:defaultValue="500"/>
 
      </PreferenceCategory>
@@ -68,12 +71,14 @@
                     android:key="key_rowsCount_P"
                     android:title="@string/Rows_count"
                     android:inputType="number"
+                    android:selectAllOnFocus="true"
                     android:defaultValue="6"
                     />
                 <EditTextPreference
                     android:key="key_colsCount_P"
                     android:title="@string/Columns_count"
                     android:inputType="number"
+                    android:selectAllOnFocus="true"
                     android:defaultValue="4"
                     />
         </PreferenceCategory>
@@ -85,12 +90,14 @@
                     android:key="key_rowsCount_L"
                     android:title="@string/Rows_count"
                     android:inputType="number"
+                    android:selectAllOnFocus="true"
                     android:defaultValue="4"
                     />
                 <EditTextPreference
                     android:key="key_colsCount_L"
                     android:title="@string/Columns_count"
                     android:inputType="number"
+                    android:selectAllOnFocus="true"
                     android:defaultValue="6"
                     />
         </PreferenceCategory>
@@ -102,6 +109,7 @@
                 android:key="key_button_padding"
                 android:title="@string/padding"
                 android:inputType="number"
+                android:selectAllOnFocus="true"
                 android:defaultValue="2"
                 />
 

@@ -27,6 +27,7 @@ import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -321,7 +322,11 @@ public class PageFragment extends Fragment {
                 int ind = getControlIndexByNum(num);
                 int cmd = controls.get(ind).getCmdNum();
                 Log.i(TAG, " button: "+num);
-                act.sendCommand(cmd);
+                if (act.connected){
+                    act.sendCommand(cmd);
+                }else{
+                    Toast.makeText(getContext(), "No connection", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -635,6 +640,7 @@ public class PageFragment extends Fragment {
                 if (cInd>=0){
                     dlg = new AlertDialog.Builder(getActivity());
                     final EditText input = new EditText(getActivity());
+                    input.setSelectAllOnFocus(true);
                     String srcText = controls.get(cInd).getText();
                     int dNum = controls.get(cInd).getNumDev();
                     int msk = controls.get(cInd).getOutMask();
@@ -701,6 +707,7 @@ public class PageFragment extends Fragment {
                 dlg = new AlertDialog.Builder(getActivity());
                 dlg.setTitle(getString(R.string.enter_cmd));
                 final EditText cmdNum = new EditText(getActivity());
+                cmdNum.setSelectAllOnFocus(true);
                 cmdNum.setInputType(InputType.TYPE_CLASS_NUMBER);
                 String txt = String.valueOf(controls.get(cInd).getCmdNum());
                 cmdNum.setText(txt);
@@ -846,6 +853,7 @@ public class PageFragment extends Fragment {
                 txt = getText(R.string.set_cmd_num) + " (" + Integer.toString(controls.get(cInd).getCmdNum()) + ")";
                 cmdTitle.setText(txt);
                 final EditText cmdN = v.findViewById(R.id.cmdN_edit);
+                cmdN.setSelectAllOnFocus(true);
                 txt = Integer.toString(lastCmd);
                 cmdN.setText(txt);
 
@@ -853,6 +861,7 @@ public class PageFragment extends Fragment {
                 txt = getText(R.string.set_dev_num) + " (" + Integer.toString(controls.get(cInd).getNumDev()) + ")";
                 ndevTitle.setText(txt);
                 final EditText devN = v.findViewById(R.id.devN_edit);
+                devN.setSelectAllOnFocus(true);
                 txt = Integer.toString(numDev);
                 devN.setText(txt);
 
@@ -860,6 +869,7 @@ public class PageFragment extends Fragment {
                 txt = getText(R.string.set_outmask) + " (" + Integer.toString(controls.get(cInd).getOutMask()) + ")";
                 maskTitle.setText(txt);
                 final EditText msk = v.findViewById(R.id.mask_edit);
+                msk.setSelectAllOnFocus(true);
                 txt = Integer.toString(outMask);
                 msk.setText(txt);
 
@@ -900,6 +910,7 @@ public class PageFragment extends Fragment {
             case M_REN_SNS:
                 dlg = new AlertDialog.Builder(getActivity());
                 final EditText sensNameText = new EditText(getActivity());
+                sensNameText.setSelectAllOnFocus(true);
                 sensNameText.setText(controls.get(cInd).getText());
                 dlg.setView(sensNameText);
                 dlg.setTitle(R.string.msg_rename);
@@ -1009,8 +1020,8 @@ public class PageFragment extends Fragment {
                     intent.putExtra("statBuff", data);
                     intent.putExtra("snsType", typ);
                     intent.putExtra("period", (stat[5]&0xFF)<<8 | stat[6]&0xFF);
-                    intent.putExtra("deviceIP", act.deviceIP);
-                    intent.putExtra("devPort", act.devPort);
+//                    intent.putExtra("deviceIP", act.deviceIP);
+//                    intent.putExtra("devPort", act.devPort);
                     intent.putExtra("localPort", act.localPort);
                     intent.putExtra("measureTyp", controls.get(cInd).getUpText());
                     intent.putExtra("snsText", controls.get(cInd).getText());

@@ -66,7 +66,7 @@
     <string name="timeout">Таймаут, мС</string>
     <string name="buttons">Кнопки</string>
     <string name="padding">Отступ</string>
-    <string name="port">Порт</string>
+    <string name="port">Удаленный Порт</string>
     <string name="checkNAT">Check NAT type</string>
     <string name="Start">Start</string>
 </resources>

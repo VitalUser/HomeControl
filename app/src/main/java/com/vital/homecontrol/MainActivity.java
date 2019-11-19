@@ -83,7 +83,8 @@ public class MainActivity extends AppCompatActivity {
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
     static final int RK_STUN = 1002;
-    public int devPort = 55555;
+    public int defaultPort = 55555;
+    private int remPort = 0;
     static final int localPort = 55550;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
@@ -93,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
     static final String STATE_EXECDEVS = "ExecDevices";
     static final String STATE_SENSORS = "Sensors";
     static final String STATE_DESTIP = "DestIP";
+    static final String STATE_REMOTE = "Remote";
     static final String STATE_LASTSMD = "LastDevNum";
     static final String STATE_LASTCHNG = "LastChange";
 
@@ -146,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
     static final int NO_CONFIRM                 =  0xFF;
 
     public static final int NUMBER_OF_REQUEST   = 23401;
-    static final int BR_MSG_END_CONNECTING      =  0x01;
+    static final int MSG_END_CONNECTING         =  0x01;
     static final int BR_MSG_END_SETTING         =  0x02;
 
 
@@ -159,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
     TextView localIPtext;
     TextView devCountText;
     TextView sensCountText;
+    TextView fText;
     UDPserver sUDP;
 
 
@@ -167,16 +170,18 @@ public class MainActivity extends AppCompatActivity {
     private Boolean isShowDialog = false;
     private Boolean netRecieverRegistered;
     private Boolean udpRecieverRegistered;
-    private Boolean msgRecieverRegistered;
+//    private Boolean msgRecieverRegistered;
     private Boolean workWiFi;
-    private String remoteIP;
-    public String deviceIP;
-    private boolean connected;
+    private Boolean remote;
+    private String remoteIP = "0.0.0.0";
+//    public String deviceIP;
+    public String devLocalIP;
+    public boolean connected;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
     public int lastCommand = 0;
     public int changedState = 0;
-    private String titleStr = "";
+//    private String titleStr = "";
     private String theme;
     public String storageDir;
     private int timeout;
@@ -213,11 +218,15 @@ public class MainActivity extends AppCompatActivity {
 //            connected = false;
             netRecieverRegistered = false;
             udpRecieverRegistered = false;
-            msgRecieverRegistered = false;
+//            msgRecieverRegistered = false;
             workWiFi = false;
 //            deviceIP = stringIP(getBroadcastWiFiIP());
-            deviceIP = "";
-            remoteIP = prefs.getString("key_remIP", "");
+            devLocalIP = "";
+            remote=false;
+            remoteIP = prefs.getString("key_remIP", "0.0.0.0");
+            if (prefs.getString("key_port", "0")!=null){
+                remPort = Integer.parseInt(prefs.getString("key_port", "0"));
+            }
         }
         super.onCreate(savedInstanceState);
 
@@ -293,6 +302,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         pBar = findViewById(R.id.progressBar);
+        pBar.setVisibility(View.INVISIBLE);
+        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
         statusText = findViewById(R.id.status_text);
         statusText.setText("");
         destIPtext = findViewById(R.id.target_IP_text);
@@ -303,6 +314,7 @@ public class MainActivity extends AppCompatActivity {
         devCountText.setText("0");
         sensCountText = findViewById(R.id.senscount_text);
         sensCountText.setText("0");
+        fText = findViewById(R.id.f_text);
 
         updateConfig();
 
@@ -355,10 +367,11 @@ public class MainActivity extends AppCompatActivity {
 // http://developer.alexanderklimov.ru/android/theory/parcelable.php
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        Log.i(TAG, " onSaveInstanceState, deviceIP = " + deviceIP );
-//        outState.putBoolean(STATE_CONNECTED, connected);
-        outState.putString(STATE_DESTIP, deviceIP);
+        Log.i(TAG, " onSaveInstanceState, deviceIP = " + devLocalIP );
+        outState.putBoolean(STATE_CONNECTED, connected);
+        outState.putString(STATE_DESTIP, devLocalIP);
         outState.putBoolean(STATE_WIFI, workWiFi);
+        outState.putBoolean(STATE_REMOTE, remote);
         outState.putParcelableArrayList(STATE_EXECDEVS, (ArrayList<? extends Parcelable>) execDevs);
         outState.putParcelableArrayList(STATE_SENSORS, (ArrayList<? extends Parcelable>) sensors);
         outState.putInt(STATE_LASTSMD, lastCommand);
@@ -369,9 +382,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-//        connected = savedInstanceState.getBoolean(STATE_CONNECTED);
-        deviceIP = savedInstanceState.getString(STATE_DESTIP);
+        connected = savedInstanceState.getBoolean(STATE_CONNECTED);
+        devLocalIP = savedInstanceState.getString(STATE_DESTIP);
         workWiFi = savedInstanceState.getBoolean(STATE_WIFI);
+        remote = savedInstanceState.getBoolean(STATE_REMOTE);
         execDevs = savedInstanceState.getParcelableArrayList(STATE_EXECDEVS);
         sensors = savedInstanceState.getParcelableArrayList(STATE_SENSORS);
         lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
@@ -390,10 +404,10 @@ public class MainActivity extends AppCompatActivity {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(udpReciever);
             udpRecieverRegistered=false;
         }
-        if (msgRecieverRegistered){
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(msgReciever);
-            msgRecieverRegistered=false;
-        }
+//        if (msgRecieverRegistered){
+//            LocalBroadcastManager.getInstance(this).unregisterReceiver(msgReciever);
+//            msgRecieverRegistered=false;
+//        }
         String fPrefFile = this.getPackageName()+ "_preferences.xml";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
             fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
@@ -406,15 +420,29 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 //        Log.i(TAG, " execDevs.size() = "+execDevs.size());
-        connected=false;
-        if (connectIsValid()){
-            connected=true;
-            destIPtext.setText(deviceIP);
+//        connected=false;
+//        if (connectIsValid()){
+        if (connected){
+//            connected=true;
             devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
             sensCountText.setText(String.format(Locale.getDefault(),"%d", sensors.size()));
+            String link;
+            if (remote){
+                link = "MapAddr ("+ getLocalIP() + ") <--> " + "RemIP ("+ devLocalIP + ")";
+
+            }else{
+                link = getLocalIP() + " <--> " + devLocalIP;
+            }
+            fText.setText(link);
         }else {
-            if (!deviceIP.equals("")){
-                connectToHost();
+            if (!devLocalIP.equals("")){
+                if (remote){
+                    if ((!remoteIP.equals("0.0.0.0"))&&(remPort!=0)){
+                        connectToHost(remoteIP, remPort, true);
+                    }
+                }else{
+                    connectToHost(devLocalIP, defaultPort, false);
+                }
             }
         }
         Log.i(TAG, " onResume in MainActivity " );
@@ -438,8 +466,8 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this).registerReceiver(udpReciever, new IntentFilter(UDP_RCV));
         udpRecieverRegistered = true;
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(msgReciever, new IntentFilter(MSG_RCV));
-        msgRecieverRegistered = true;
+//        LocalBroadcastManager.getInstance(this).registerReceiver(msgReciever, new IntentFilter(MSG_RCV));
+//        msgRecieverRegistered = true;
     }
 
     @Override
@@ -487,7 +515,14 @@ public class MainActivity extends AppCompatActivity {
                 return true;
 
             case R.id.action_update:
-                connectToHost();
+
+                if (remote){
+                    if ((!remoteIP.equals("0.0.0.0"))&&(remPort!=0)){
+                        connectToHost(remoteIP, remPort, true);
+                    }
+                }else{
+                    connectToHost(stringIP(getBroadcastWiFiIP()), defaultPort, false);
+                }
                 return true;
 
             case R.id.action_settings:
@@ -516,7 +551,9 @@ public class MainActivity extends AppCompatActivity {
                 sUDP.setPass(pass);
             }
             if (theme.equals(prefs.getString("key_theme", ""))){
-                sendUI_Msg(BR_MSG_END_SETTING);
+ //               if (connMgr.getActiveNetworkInfo()!=null){
+//                    connectToHost();
+//                }
             }else{
 
                 recreate();
@@ -619,12 +656,12 @@ public class MainActivity extends AppCompatActivity {
 
 
             if (netInfo != null){
-                titleStr = " connected "+ netInfo.getTypeName();
-                setTitle(getString(R.string.app_name)  + titleStr);
-                localIPtext.setText(getLocalIP());
+//                titleStr = " connected "+ netInfo.getTypeName();
+//                setTitle(getString(R.string.app_name)  + titleStr);
+//                localIPtext.setText(getLocalIP());
             }else{
                 Log.i(TAG, " NetInfoReceiver - netInfo = null" );
-                titleStr = " no network";
+                String titleStr = " no network";
                 setTitle(getString(R.string.app_name)  + titleStr);
             }
 
@@ -635,13 +672,13 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }else{
                     if (netInfo != null){
+                        remoteIP = prefs.getString("key_remIP", "");
                         if (remoteIP.equals("0.0.0.0")){
                             Toast.makeText(getApplicationContext(), "WiFi is OFF\nRemote IP not set", Toast.LENGTH_LONG).show();
                         }else{
-                            deviceIP = remoteIP;
-                            if (!connected){
-                                connectToHost();
-                            }
+//                            if (!connected){
+                                connectToHost(remoteIP, remPort, true);
+//                            }
                         }
                     }else{
                         Toast.makeText(getApplicationContext(), "WiFi is OFF, no network", Toast.LENGTH_LONG).show();
@@ -655,25 +692,23 @@ public class MainActivity extends AppCompatActivity {
 //                    Toast.makeText(getApplicationContext(), "WiFi is ON, "+netInfo.getTypeName(), Toast.LENGTH_LONG).show();
                     if (netInfo.getType()==ConnectivityManager.TYPE_WIFI){          // WiFi is ON, connected to acsess point
                         if (!connected){
-                            deviceIP = stringIP(getBroadcastWiFiIP());
-                            connectToHost();
+                            connectToHost(stringIP(getBroadcastWiFiIP()), defaultPort, false);
                         }
-                        Log.i(TAG, " broadcast:  WiFi is ON, titleStr = "+ deviceIP);
 
                     }else{
                         if (netInfo.getType()==ConnectivityManager.TYPE_MOBILE){    // WiFi is ON, but no acsess point found, MobileNet is ON
                             Log.i(TAG, " broadcast:  WiFi is ON, net = mobile try tryMobileConnect");
                             String tn = getString(R.string.connected)+" "+netInfo.getTypeName();
                             statusText.setText(tn);
-                            titleStr = " WiFi is ON, "+netInfo.getTypeName();
-                            setTitle(getString(R.string.app_name)  + titleStr);
+//                            titleStr = " WiFi is ON, "+netInfo.getTypeName();
+//                            setTitle(getString(R.string.app_name)  + titleStr);
 //                            tryMobileConnect();
                         }
                     }
 
                 }else{                                  // WiFi is ON, but no acsess point found, MobileNet is OFF
-                    titleStr = "WiFi ON, No Net";
-                    setTitle(getString(R.string.app_name)  + titleStr);
+//                    titleStr = "WiFi ON, No Net";
+//                    setTitle(getString(R.string.app_name)  + titleStr);
                     Log.i(TAG, " broadcast:  WiFi is ON, No network");
                     statusText.setText(getString(R.string.no_net));
                 }
@@ -702,8 +737,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         Log.i(TAG, " wifiOnDialog - yes");
-                        titleStr = " connecting..." ;
-                        setTitle(getString(R.string.app_name)  + titleStr);
+//                        titleStr = " connecting..." ;
+//                        setTitle(getString(R.string.app_name)  + titleStr);
                         statusText.setText(R.string.connecting);
 //                        progress.setVisibility(View.VISIBLE);
                         wifiMgr.setWifiEnabled(true);
@@ -755,16 +790,22 @@ public class MainActivity extends AppCompatActivity {
     }
     */
 
-    private void connectToHost(){
+    private void connectToHost(String ip, int port, final Boolean remote ){
 
-        destIPtext.setText(getString(R.string.connecting));
+        statusText.setText(getString(R.string.connecting));
         connected = false;
 
-        devPort = Integer.parseInt(prefs.getString("key_port", "55555"));
+//        devPort = Integer.parseInt(prefs.getString("key_port", "55555"));
 //        deviceIP = stringIP(getBroadcastWiFiIP());
         if (sUDP!=null){
-            sUDP.setDestIP(deviceIP);
-            sUDP.setDestPort(devPort);
+            sUDP.setDestIP(ip);
+            sUDP.setDestPort(port);
+        }else{
+            int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
+            sUDP = new UDPserver(this, ip, port, localPort, pass);
+            Log.i(TAG, " askUDP, new sUDP" );
+            sUDP.start();
+
         }
 
         pBar.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -775,36 +816,39 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
 //                sendUI_Msg("", "", "", "connecting...");
 
+//                String devLocalIP="";
                 Log.i(TAG, " Create connecting thread: "+currentThread() );
-                Message msg = handler.obtainMessage();
-                Bundle bundle = new Bundle();
                 byte[] outBuf = {ASK_IP};
                 if (askUDP(outBuf, MSG_ANSW_IP, 0)){
-                    deviceIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
-                    Log.i(TAG, " got answer IP: "+deviceIP );
+                    devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
+                    Log.i(TAG, " got answer IP: "+devLocalIP );
                     connected = true;
 //                    sendUI_Msg("", "", "", deviceIP);
-                    bundle.putString("Taget", deviceIP);
-                    msg.setData(bundle);
-                    handler.sendMessage(msg);
+//                    bundle.putString("Taget", deviceIP);
+//                    msg.setData(bundle);
+//                    handler.sendMessage(msg);
 
-                    sUDP.setDestIP(deviceIP);
+                    if (!remote){
+                        sUDP.setDestIP(devLocalIP);
+                    }
                 }else{
                     if (askUDP(outBuf, MSG_ANSW_IP, 0)){
-                        deviceIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
-                        Log.i(TAG, " got answer IP: "+deviceIP );
+                        devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getRecvBuff(1),sUDP.getRecvBuff(2),sUDP.getRecvBuff(3),sUDP.getRecvBuff(4)); // & 0xFF need for unsigned
+                        Log.i(TAG, " got answer IP: "+devLocalIP );
                         connected = true;
 //                    sendUI_Msg("", "", "", deviceIP);
-                        bundle.putString("Taget", deviceIP);
-                        msg.setData(bundle);
-                        handler.sendMessage(msg);
+//                        bundle.putString("Taget", deviceIP);
+//                        msg.setData(bundle);
+//                        handler.sendMessage(msg);
 
-                        sUDP.setDestIP(deviceIP);
+                        if (!remote){
+                            sUDP.setDestIP(devLocalIP);
+                        }
                     }else {
 //                        sendUI_Msg("", "", "", getString(R.string.noIP));
-                        bundle.putString("Taget", getString(R.string.noIP));
-                        msg.setData(bundle);
-                        handler.sendMessage(msg);
+//                        bundle.putString("Taget", getString(R.string.noIP));
+//                        msg.setData(bundle);
+//                        handler.sendMessage(msg);
                     }
                 }
                 if (connected){
@@ -822,9 +866,9 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }else{
 //                        sendUI_Msg("", "No answer List Device", "", "");
-                        bundle.putString("Status", "No answer List Device");
-                        msg.setData(bundle);
-                        handler.sendMessage(msg);
+//                        bundle.putString("Status", "No answer List Device");
+//                        msg.setData(bundle);
+//                        handler.sendMessage(msg);
                     }
 
                     outBuf[0] = ASK_COUNT_SENSORS;
@@ -866,17 +910,20 @@ public class MainActivity extends AppCompatActivity {
 
 
 //                    sendUI_Msg("", "", getString(R.string.connected), "");
-                    bundle.putString("Toast", getString(R.string.connected));
-                    Message msg1 = handler.obtainMessage();
-                    msg1.setData(bundle);
-                    handler.sendMessage(msg1);
+//                    bundle.putString("Toast", getString(R.string.connected));
+//                    Message msg1 = handler.obtainMessage();
+//                    msg1.setData(bundle);
+//                    handler.sendMessage(msg1);
                 }
-                Log.i(TAG, "Connected is "+ connected+ ", Send BR_MSG_END_CONNECTING");
+                Log.i(TAG, "Connected is "+ connected+ ", Send MSG_END_CONNECTING");
 //                sendUI_Msg(BR_MSG_END_CONNECTING);
-                bundle.putInt("ThreadEnd", BR_MSG_END_CONNECTING);
-                Message msg2 = handler.obtainMessage();
-                msg2.setData(bundle);
-                handler.sendMessage(msg2);
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
+                bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
+                bundle.putBoolean("Remote", remote);
+ //               bundle.putString("DevLocIP", devLocalIP);
+                msg.setData(bundle);
+                handler.sendMessage(msg);
 
             }
         }).start();
@@ -889,71 +936,77 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void handleMessage(Message msg) {
             Bundle bundle = msg.getData();
-            String status = bundle.getString("Status");
-            String localIP = bundle.getString("Local");
-            String tagetIP = bundle.getString("Taget");
-            String toastText = bundle.getString("Toast");
-            if (status!=null){
-                if (!status.equals("")){
-                    statusText.setText(status);
-                }
-            }
-           if (localIP!=null){
-               if (!localIP.equals("")){
-                   localIPtext.setText(localIP);
-               }
-           }
-           if (tagetIP!=null){
-               if (!tagetIP.equals("")){
-                   destIPtext.setText(tagetIP);
-               }
-           }
-           if (toastText!=null){
-               if (!toastText.equals("")){
-                   Toast.makeText(getApplicationContext(), toastText, Toast.LENGTH_SHORT).show();
-               }
-           }
+//            String status = bundle.getString("Status");
+//            String tagetIP = bundle.getString("Taget");
+//            String toastText = bundle.getString("Toast");
            int state = bundle.getInt("ThreadEnd", 0);
-           if (state==BR_MSG_END_CONNECTING){
-               Log.i(TAG, " get BR_MSG_END_CONNECTING");
+           if (state==MSG_END_CONNECTING){
+               Log.i(TAG, " get MSG_END_CONNECTING");
                pBar.setVisibility(View.INVISIBLE);
                pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
                if (connected){
-                   Calendar cl = Calendar.getInstance();
-                   byte[] buffTime = new  byte[9];
-                   buffTime[0] = CMD_SET_TIME;
-                   int dw = cl.get(Calendar.DAY_OF_WEEK);
-                   buffTime[1] = (byte) (dw==0 ? 7 : dw-1);
-                   buffTime[2] = (byte) ((cl.get(Calendar.YEAR)>>8)&0xFF);
-                   buffTime[3] = (byte) (cl.get(Calendar.YEAR)&0xFF);
-                   buffTime[4] = (byte) (cl.get(Calendar.MONTH)+1);
-                   buffTime[5] = (byte) cl.get(Calendar.DAY_OF_MONTH);
-                   buffTime[6] = (byte) cl.get(Calendar.HOUR_OF_DAY);
-                   buffTime[7] = (byte) cl.get(Calendar.MINUTE);
-                   buffTime[8] = (byte) cl.get(Calendar.SECOND);
-                   askUDP(buffTime, MSG_RCV_OK, 0);
+//                   Boolean rem = ;
 
+//                 String locIP = bundle.getString("Local");
+                   remote=bundle.getBoolean("Remote");
+                   String link;
+                   if (remote){
+                       link = "MapAddr ("+ getLocalIP() + ") <--> " + "RemIP ("+ devLocalIP + ")";
 
+                   }else{
+                       link = getLocalIP() + " <--> " + devLocalIP;
+                   }
+                   fText.setText(link);
                    devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
                    statusText.setText(R.string.connected);
-                   for (int i = 0; i <execDevs.size() ; i++) {
-                       byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
-                       askUDP(bufState, MSG_RE_SENT_W, MSG_STATE);
-                   }
+                   taskAfterConnect();
                }else{
                    statusText.setText(R.string.no_connect);
+                   fText.setText("");
                }
 
            }
         }
     };
 
+    private void taskAfterConnect(){
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Calendar cl = Calendar.getInstance();
+                byte[] buffTime = new  byte[9];
+                buffTime[0] = CMD_SET_TIME;
+                int dw = cl.get(Calendar.DAY_OF_WEEK);
+                buffTime[1] = (byte) (dw==0 ? 7 : dw-1);
+                buffTime[2] = (byte) ((cl.get(Calendar.YEAR)>>8)&0xFF);
+                buffTime[3] = (byte) (cl.get(Calendar.YEAR)&0xFF);
+                buffTime[4] = (byte) (cl.get(Calendar.MONTH)+1);
+                buffTime[5] = (byte) cl.get(Calendar.DAY_OF_MONTH);
+                buffTime[6] = (byte) cl.get(Calendar.HOUR_OF_DAY);
+                buffTime[7] = (byte) cl.get(Calendar.MINUTE);
+                buffTime[8] = (byte) cl.get(Calendar.SECOND);
+                askUDP(buffTime, MSG_RCV_OK, 0);
+
+
+                for (int i = 0; i <execDevs.size() ; i++) {
+                    byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
+                    askUDP(bufState, MSG_RE_SENT_W, MSG_STATE);
+                }
+
+            }
+        }).start();
+
+    }
+
 
     private void parceFromHub(byte[] buf){
         switch (buf[0]&0xFF){
             case MSG_RE_SENT_W:
                 parceFromDevice(buf);
+                break;
+            case 0:
                 break;
         }
     }
@@ -1087,12 +1140,14 @@ public class MainActivity extends AppCompatActivity {
 
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
+        /*
         if (sUDP == null) {
             int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
             sUDP = new UDPserver(this, deviceIP, devPort, localPort, pass);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
         }
+        */
         int curID = sUDP.getCurrentID();
         curID++;
         sUDP.setCurrentID((byte) curID);
@@ -1114,7 +1169,7 @@ public class MainActivity extends AppCompatActivity {
 //        sendToast(getString(R.string.no_answer));
 //        sendStatusText("No answer to " + byteArrayToHex(inBuf, inBuf.length));
         Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
-        sendUI_Msg("", "No answer to " + byteArrayToHex(inBuf, inBuf.length), getString(R.string.no_answer), "");
+        sendUI_Msg("No answer to " + byteArrayToHex(inBuf, inBuf.length), getString(R.string.no_answer), "");
 //        drawRcvStatus(3, false);
         return false;
     }
@@ -1134,14 +1189,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean connectIsValid(){
-        if (!deviceIP.equals("")){
+        if (!devLocalIP.equals("")){
             byte[] outBuf = {ASK_IP};
+            /*
             if (sUDP == null) {
                 int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
                 sUDP = new UDPserver(this, deviceIP, devPort, localPort, pass);
                 Log.i(TAG, " connectIsValid, new sUDP" );
                 sUDP.start();
             }
+            */
             for (int i = 1; i <4 ; i++) {
                 sUDP.send(outBuf, outBuf.length, (byte) NO_CONFIRM, MSG_ANSW_IP, 0);
                 if (waitForConfirm(50)){
@@ -1151,34 +1208,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return false;
-
-    }
-
-
-    private void parceUDPpacket(byte[] buf){
-        int twobytes = buf[0]*0x100+buf[1]&0xFF;
-        if (twobytes==STUN_RESPONCE){
-            int len = buf[2]*0x100+buf[3]&0xFF;
-                if (len>0){
-                    int ofs = 20;
-                    String stMA = "";
-                    String stSA = "";
-                    String stCA = "";
-                    String stXA = "";
-                    while (ofs<len){
-                        switch (buf[ofs]*0x100+buf[ofs+1]&0xFF){
-                            case 0x0001:
-                                stMA= String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8])+"."+String.valueOf(buf[ofs+8]);
-                                stMA=stMA+":"+String.valueOf(buf[ofs+6]+0x100+buf[7]&0xFF);
-                                break;
-                        }
-                        ofs=ofs+buf[ofs+2]*0x100+buf[ofs+3]&0xFF+4;
-
-                    }
-                    statusText.setText(stMA);
-                }
-
-        }
     }
 
 
@@ -1196,24 +1225,15 @@ public class MainActivity extends AppCompatActivity {
                 parceFromHub(inBuf);
             }
 
-            byte[] udpPacket = intent.getByteArrayExtra("UDPpacket");
-            if ((udpPacket!=null) && (udpPacket.length>0)){
-                parceUDPpacket(inBuf);
-
-            }
         }
     };
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
+    /*
     private BroadcastReceiver msgReciever = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String title = intent.getStringExtra("isTitle");
-            if (!title.equals("")){
-                Log.i(TAG, " msgReciever: isTitle: = "+title);
-                setTitle(title);
-            }
             String statText = intent.getStringExtra("isStatusText");
             if (!statText.equals("")){
                 Log.i(TAG, " msgReciever: isStatusText: = "+statText);
@@ -1270,11 +1290,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
 
-                case BR_MSG_END_SETTING:
-                    if (connMgr.getActiveNetworkInfo()!=null){
-                        connectToHost();
-                    }
-                    break;
+//                case BR_MSG_END_SETTING:
+//                    if (connMgr.getActiveNetworkInfo()!=null){
+//                        connectToHost();
+//                    }
+//                   break;
             }
 
             byte[] buf = intent.getByteArrayExtra("buffer");
@@ -1285,30 +1305,21 @@ public class MainActivity extends AppCompatActivity {
                     byte[] sendBuf = Arrays.copyOfRange(buf, 2, buf.length-2);
                     askUDP(sendBuf, hCmd, dCmd);
                 }
-
             }
 
         }
     };
 
-    private void sendUI_Msg(String title, String statText, String toastMsg, String target){
+    */
+
+    private void sendUI_Msg(String statText, String toastMsg, String target){
         Intent intent = new Intent(MSG_RCV);
-        intent.putExtra("isTitle", title);
         intent.putExtra("isStatusText", statText);
         intent.putExtra("isToast", toastMsg);
         intent.putExtra("isTarget", target);
         LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
     }
 
-    private void sendUI_Msg(int mesID){
-        Intent intent = new Intent(MSG_RCV);
-        intent.putExtra("isTitle", "");
-        intent.putExtra("isStatusText", "");
-        intent.putExtra("isToast", "");
-        intent.putExtra("isTarget", "");
-        intent.putExtra("isNumMsg", mesID);
-        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
-    }
 
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------

@@ -66,7 +66,7 @@
     <string name="timeout">Timeout</string>
     <string name="buttons">Buttons</string>
     <string name="padding">Paddings</string>
-    <string name="port">Port</string>
+    <string name="port">Remote Port</string>
     <string name="checkNAT">Check NAT type</string>
     <string name="Start">Start</string>
 </resources>

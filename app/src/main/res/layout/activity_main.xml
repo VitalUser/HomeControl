@@ -33,6 +33,13 @@
         android:layout_gravity="center"
         android:indeterminate="true"/>
 
+    <TextView
+        android:id="@+id/f_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/cell_color"
+        android:text="" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="20dp"
@@ -44,7 +51,7 @@
             android:layout_height="match_parent"
             android:background="@drawable/cell_color"
             android:layout_weight="10"
-            android:text="status_text" />
+            android:text="" />
 
         <TextView
             android:id="@+id/local_IP_text"
@@ -52,7 +59,7 @@
             android:layout_height="match_parent"
             android:background="@drawable/cell_color"
             android:layout_weight="6"
-            android:text="target_text"/>
+            android:text=""/>
 
         <TextView
             android:id="@+id/target_IP_text"
@@ -60,7 +67,7 @@
             android:layout_height="match_parent"
             android:background="@drawable/cell_color"
             android:layout_weight="6"
-            android:text="target_text"/>
+            android:text=""/>
 
         <TextView
             android:id="@+id/devcount_text"
@@ -68,7 +75,7 @@
             android:layout_height="match_parent"
             android:background="@drawable/cell_color"
             android:layout_weight="1"
-            android:text="0"/>
+            android:text=""/>
 
         <TextView
             android:id="@+id/senscount_text"
@@ -76,7 +83,7 @@
             android:layout_height="match_parent"
             android:background="@drawable/cell_color"
             android:layout_weight="1"
-            android:text="0"/>
+            android:text=""/>
 
     </LinearLayout>
 
