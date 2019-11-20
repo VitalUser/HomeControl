@@ -31,6 +31,7 @@ public class StunActivity extends AppCompatActivity {
     private static final String UDP_PACKET_RCV = "UDP_PacketReceived";
     private static final int STUN_RESPONCE = 0x0101;
 
+//  https://apprtc.appspot.com/ - public signalling server
 
     SharedPreferences prefs;
     Button startSTUN;
