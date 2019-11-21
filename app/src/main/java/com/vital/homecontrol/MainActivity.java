@@ -177,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
 //    public String deviceIP;
     public String devLocalIP;
     public boolean connected;
+    private int pass;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
     public int lastCommand = 0;
@@ -303,7 +304,7 @@ public class MainActivity extends AppCompatActivity {
 
         pBar = findViewById(R.id.progressBar);
         pBar.setVisibility(View.INVISIBLE);
-        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
+//        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
         statusText = findViewById(R.id.status_text);
         statusText.setText("");
         destIPtext = findViewById(R.id.target_IP_text);
@@ -546,7 +547,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, " onActivityResult " + requestCode+" "+resultCode);
         if (requestCode==RK_SETTING){
             remoteIP = prefs.getString("key_remIP", "");
-            int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
+            pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
             if (sUDP!=null){
                 sUDP.setPass(pass);
             }
@@ -801,14 +802,14 @@ public class MainActivity extends AppCompatActivity {
             sUDP.setDestIP(ip);
             sUDP.setDestPort(port);
         }else{
-            int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
+            pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
             sUDP = new UDPserver(this, ip, port, localPort, pass);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
 
         }
 
-        pBar.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+//        pBar.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         pBar.setVisibility(View.VISIBLE);
 
         new  Thread(new Runnable() {
@@ -943,7 +944,7 @@ public class MainActivity extends AppCompatActivity {
            if (state==MSG_END_CONNECTING){
                Log.i(TAG, " get MSG_END_CONNECTING");
                pBar.setVisibility(View.INVISIBLE);
-               pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
+//               pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
                if (connected){
 //                   Boolean rem = ;
 
@@ -1169,7 +1170,7 @@ public class MainActivity extends AppCompatActivity {
 //        sendToast(getString(R.string.no_answer));
 //        sendStatusText("No answer to " + byteArrayToHex(inBuf, inBuf.length));
         Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
-        sendUI_Msg("No answer to " + byteArrayToHex(inBuf, inBuf.length), getString(R.string.no_answer), "");
+//        sendUI_Msg("No answer to " + byteArrayToHex(inBuf, inBuf.length), getString(R.string.no_answer), "");
 //        drawRcvStatus(3, false);
         return false;
     }
@@ -1219,10 +1220,46 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
 //            int attempt = intent.getIntExtra("Attempt", 0);
-            byte[] inBuf = intent.getByteArrayExtra("Buffer");
-            if ((inBuf!=null) && (inBuf.length>0)){
-                Log.i(TAG, " onReceive in Main: inbuf: = "+byteArrayToHex(inBuf, inBuf.length));
-                parceFromHub(inBuf);
+            byte[] inData = intent.getByteArrayExtra("Buffer");
+            int len = inData.length;
+            if (len>0){
+
+
+                int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));    // first 3 bytes - pass
+                if (ps==pass){
+                    if ((inData[3]&0xFF)!=sUDP.lastID){                                              // next byte - packet ID, next - attempt, next 2 - reserved
+                        byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
+                        sUDP.lastID= (byte) (inData[3]&0xFF);
+//                                recieved = true;
+                        Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+
+                        /*
+                        String st;
+                        if (recvBuff.length>3){
+                            st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd+", recvBuff[3]="+(recvBuff[3]&0xFF)+", devCmd="+devCmd;
+                        }else{
+                            st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd;
+                        }
+                        Log.i(TAG, st +", "+ hashCode());
+
+                         */
+
+
+                        if (recvBuff[0]!=(byte)MSG_RCV_OK){
+                            parceFromHub(recvBuff);
+                        }
+                    }
+                    else{
+                        Log.i(TAG, " Receive repeat:  "+ inData[4]);
+                    }
+                }else{
+
+                    Log.i(TAG, " Packet received, but pass mismatch: got "+ Integer.toHexString(ps).toUpperCase() +
+                            ", need " + Integer.toHexString(pass).toUpperCase());
+                }
+
+
+
             }
 
         }
@@ -1310,7 +1347,6 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    */
 
     private void sendUI_Msg(String statText, String toastMsg, String target){
         Intent intent = new Intent(MSG_RCV);
@@ -1320,6 +1356,7 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
     }
 
+    */
 
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1382,7 +1419,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             if (to.exists()){
-                InputStream in = null;
+                InputStream in;
                 try {
                     in = new FileInputStream(from);
                     OutputStream out = new FileOutputStream(to);
@@ -1393,8 +1430,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                     out.close();
                     in.close();
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

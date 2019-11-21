@@ -30,6 +30,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,6 +45,7 @@ import static com.vital.homecontrol.MainActivity.MSG_RE_SENT_W;
 import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_STATE;
 import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
+import static com.vital.homecontrol.MainActivity.byteArrayToHex;
 
 public class PageFragment extends Fragment {
     private static final String TAG = "MyclassPageFragment";
@@ -1072,8 +1074,9 @@ public class PageFragment extends Fragment {
         @Override
         public void onReceive(Context context, Intent intent) {
             byte[] inBuf = intent.getByteArrayExtra("Buffer");
+            byte[] rbuff = Arrays.copyOfRange(inBuf, 7, inBuf.length);
             Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+act.byteArrayToHex(inBuf, inBuf.length));
-            parceFromHub(inBuf);
+            parceFromHub(rbuff);
         }
 
     };

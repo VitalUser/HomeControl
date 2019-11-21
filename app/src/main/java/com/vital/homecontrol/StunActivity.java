@@ -1,6 +1,7 @@
 package com.vital.homecontrol;
 
 import android.annotation.SuppressLint;
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -125,6 +126,31 @@ public class StunActivity extends AppCompatActivity {
             }
     }
 
+
+    /*
+    private ProgressDialog progressDialog = null;
+
+    private void showProgress(String text){
+        if (progressDialog == null){
+            try {
+                progressDialog = ProgressDialog.show(this, "", text);
+                progressDialog.setCancelable(false);
+            } catch (Exception e){
+
+            }
+        }
+    }
+
+    public void hideProgress(){
+        if (progressDialog != null){
+            progressDialog.dismiss();
+            progressDialog = null;
+        }
+    }
+
+
+     */
+
     private Boolean gotResponce(String ip, int port, byte param){
         int att = 0;
         while ((att<8) && (!sendRequest(ip, port, param))){
@@ -137,6 +163,7 @@ public class StunActivity extends AppCompatActivity {
         String defIP = "216.93.246.18";
         int defPort = 3478;
         prBar.setVisibility(View.VISIBLE);
+//        showProgress("");
         test1.setText("");
         test2.setText("");
         test3.setText("");
@@ -245,6 +272,7 @@ public class StunActivity extends AppCompatActivity {
             }
             if (bundle.getString("NatType")!=null){
                 prBar.setVisibility(View.INVISIBLE);
+//                hideProgress();
                 natType.setText(bundle.getString("NatType"));
             }
             if (bundle.getString("OutIP")!=null){
@@ -284,7 +312,7 @@ public class StunActivity extends AppCompatActivity {
             parceUDPpacket(sUDP.getRBuffer());
         }
 
-        return (att<200);
+        return ((att<200)&&(rcvID==0xFF00+param));
     }
 
     private BroadcastReceiver udpReciever = new BroadcastReceiver() {

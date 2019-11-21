@@ -26,9 +26,9 @@ public class UDPserver {
     private int destPort;
     private int localPort;
     private int pass;
-    private byte lastID;
+    byte lastID;
     private byte currentID;
-    public int hostCmd;
+    int hostCmd;
     int devCmd;
     private boolean confirmOk;
     private boolean packetUDPok;
@@ -68,20 +68,31 @@ public class UDPserver {
                     DatagramSocket sUDP = new DatagramSocket(null);
                     sUDP.setReuseAddress(true);
                     sUDP.bind(new InetSocketAddress(localPort));
-                    byte[] inData = new byte[255];
+                    byte[] inData = new byte[512];
                     while (listen){
-                        DatagramPacket inUDP = new DatagramPacket(inData, inData.length);
-                        sUDP.receive(inUDP);
-                        int len = inUDP.getLength();
-                        packetUDPok = (len>0);
-                        int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
-                        if (ps==pass){
-                            if ((inData[3]&0xFF)!=lastID){
-                                recvBuff = Arrays.copyOfRange(inData,7,len);
-                                lastID= (byte) (inData[3]&0xFF);
+                        DatagramPacket inUDP = new DatagramPacket(inData, inData.length);    // first 3 bytes - pass
+                        sUDP.receive(inUDP);                                                // next byte - packet ID, next - attempt, next 2 - reserved
+                        int len = inUDP.getLength();                                        // total - 7
+                        if (len>0){
+                            int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
+                            if (ps == pass){
+                                if ((inData[3]&0xFF)!=lastID){
+                                    recvBuff = Arrays.copyOfRange(inData,7,len);
+                                    lastID= (byte) (inData[3]&0xFF);
 //                                recieved = true;
-                                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+                                    Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
 
+                                    if ((inData[7]&0xFF)==hostCmd){
+                                        if (devCmd==0){
+                                            confirmOk=true;
+                                        }else{
+                                            if ((inData[10]&0xFF)==devCmd){
+                                                confirmOk=true;
+                                            }
+                                        }
+                                    }
+                                    Log.i(TAG, " In: confirmOk = "+ confirmOk);
+                                /*
                                 String st;
                                 if (recvBuff.length>3){
                                     st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd+", recvBuff[3]="+(recvBuff[3]&0xFF)+", devCmd="+devCmd;
@@ -90,43 +101,33 @@ public class UDPserver {
                                 }
                                 Log.i(TAG, st +", "+ hashCode());
 
+                                 */
 
-                                if ((recvBuff[0]&0xFF)==hostCmd){
-                                    if (devCmd==0){
-                                        confirmOk=true;
 
-                                    }else{
-                                        if ((recvBuff[3]&0xFF)==devCmd){
-                                            confirmOk=true;
+                                    if (recvBuff[0]!=(byte)MSG_RCV_OK){
+                                        if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                            currentID++;
+                                            byte[] buf = {(byte) MSG_RCV_OK};
+                                            Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                            send(buf, buf.length, (byte) NO_CONFIRM, 0, 0);
                                         }
                                     }
-                                }
-                                Log.i(TAG, " In: confirmOk = "+ confirmOk);
-                                if (recvBuff[0]!=(byte)MSG_RCV_OK){
-                                    Intent intent = new Intent(UDP_RCV);
-                                    intent.putExtra("Buffer", recvBuff);
-                                    LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
-                                    if ((inData[4]&0xFF)!=NO_CONFIRM){
-                                        currentID++;
-                                        byte[] buf = {(byte) MSG_RCV_OK};
-                                        Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
-                                        send(buf, buf.length, (byte) NO_CONFIRM, 0, 0);
-                                    }
-                                }
-                            }
-                            else{
-                                Log.i(TAG, " Receive repeat:  "+ inData[4]);
-                            }
-                        }else{
 
-                            recvBuff=Arrays.copyOf(inData, inData.length);
-                            Log.i(TAG, " Packet received, but pass mismatch: got "+ Integer.toHexString(ps).toUpperCase() +
-                                                ", need " + Integer.toHexString(pass).toUpperCase());
-                            Intent intent = new Intent(UDP_PACKET_RCV);
-                            intent.putExtra("UDPpacket", inData);
-                            LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+
+                                }
+                                else{
+                                    Log.i(TAG, " Receive repeat:  "+ inData[4]);
+                                }
+                                Intent intent = new Intent(UDP_RCV);
+                                intent.putExtra("Buffer", Arrays.copyOf(inData, len));
+                                LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+                            }else{
+                                recvBuff = Arrays.copyOf(inData, len);
+
+                            }
+                            packetUDPok = true;
                         }
-                    }
+                   }
                     Log.i(TAG, " Listen = " + listen);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -208,6 +209,7 @@ public class UDPserver {
 
     }
 
+
     public int getRecvBuff(int index){
         if (index<this.recvBuff.length){
             return this.recvBuff[index]&0xFF;
@@ -219,6 +221,9 @@ public class UDPserver {
     public byte[] getRBuffer(){
         return this.recvBuff;
     }
+
+
+
 
     public boolean getConfirm(){
         return this.confirmOk;
@@ -235,6 +240,9 @@ public class UDPserver {
 
     public void setCurrentID(byte value){
         this.currentID=value;
+    }
+    public void incCurrentID(){
+        this.currentID++;
     }
 
     public void setDestIP(String destIP){

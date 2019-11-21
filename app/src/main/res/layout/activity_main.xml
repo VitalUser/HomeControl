@@ -1,91 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     tools:context=".MainActivity">
-
-
-    <android.support.design.widget.TabLayout
-        android:id="@+id/tabs"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        app:tabMode="scrollable">
-
-    </android.support.design.widget.TabLayout>
-
-    <android.support.v4.view.ViewPager
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:id="@+id/viewPager">
-
-    </android.support.v4.view.ViewPager>
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:indeterminate="true"/>
-
-    <TextView
-        android:id="@+id/f_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/cell_color"
-        android:text="" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="20dp"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <android.support.design.widget.TabLayout
+            android:id="@+id/tabs"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            app:tabMode="scrollable">
+
+        </android.support.design.widget.TabLayout>
+
+        <android.support.v4.view.ViewPager
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:id="@+id/viewPager">
+
+        </android.support.v4.view.ViewPager>
 
         <TextView
-            android:id="@+id/status_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:id="@+id/f_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:background="@drawable/cell_color"
-            android:layout_weight="10"
             android:text="" />
 
-        <TextView
-            android:id="@+id/local_IP_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/cell_color"
-            android:layout_weight="6"
-            android:text=""/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/target_IP_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/cell_color"
-            android:layout_weight="6"
-            android:text=""/>
+            <TextView
+                android:id="@+id/status_text"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/cell_color"
+                android:layout_weight="10"
+                android:text="" />
 
-        <TextView
-            android:id="@+id/devcount_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/cell_color"
-            android:layout_weight="1"
-            android:text=""/>
+            <TextView
+                android:id="@+id/local_IP_text"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/cell_color"
+                android:layout_weight="6"
+                android:text=""/>
 
-        <TextView
-            android:id="@+id/senscount_text"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@drawable/cell_color"
-            android:layout_weight="1"
-            android:text=""/>
+            <TextView
+                android:id="@+id/target_IP_text"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/cell_color"
+                android:layout_weight="6"
+                android:text=""/>
+
+            <TextView
+                android:id="@+id/devcount_text"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/cell_color"
+                android:layout_weight="1"
+                android:text=""/>
+
+            <TextView
+                android:id="@+id/senscount_text"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/cell_color"
+                android:layout_weight="1"
+                android:text=""/>
+
+        </LinearLayout>
 
     </LinearLayout>
 
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-</LinearLayout>
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            />
+
+    </RelativeLayout>
+
+
+</RelativeLayout>
