@@ -149,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static final int NUMBER_OF_REQUEST   = 23401;
     static final int MSG_END_CONNECTING         =  0x01;
+    static final int MSG_GOT_MAP_ADDR           =  0x03;
     static final int BR_MSG_END_SETTING         =  0x02;
 
 
@@ -174,6 +175,8 @@ public class MainActivity extends AppCompatActivity {
     private Boolean workWiFi;
     private Boolean remote;
     private String remoteIP = "0.0.0.0";
+    private String mappedAddr = "MapAddr";
+    private int mappedPort = 0;
 //    public String deviceIP;
     public String devLocalIP;
     public boolean connected;
@@ -429,7 +432,7 @@ public class MainActivity extends AppCompatActivity {
             sensCountText.setText(String.format(Locale.getDefault(),"%d", sensors.size()));
             String link;
             if (remote){
-                link = "MapAddr ("+ getLocalIP() + ") <--> " + "RemIP ("+ devLocalIP + ")";
+                link = "MapAddr ("+ getLocalIP() + ") <--> " + remoteIP +  " ("+ devLocalIP + ")";
 
             }else{
                 link = getLocalIP() + " <--> " + devLocalIP;
@@ -657,9 +660,13 @@ public class MainActivity extends AppCompatActivity {
 
 
             if (netInfo != null){
-//                titleStr = " connected "+ netInfo.getTypeName();
-//                setTitle(getString(R.string.app_name)  + titleStr);
-//                localIPtext.setText(getLocalIP());
+                if (sUDP==null){
+                    pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
+                    sUDP = new UDPserver(getApplicationContext(), stringIP(getBroadcastWiFiIP()), defaultPort, localPort, pass);
+                    Log.i(TAG, " netInfo not null, new sUDP" );
+                    sUDP.start();
+                }
+                sendStunRequest();
             }else{
                 Log.i(TAG, " NetInfoReceiver - netInfo = null" );
                 String titleStr = " no network";
@@ -673,7 +680,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }else{
                     if (netInfo != null){
-                        remoteIP = prefs.getString("key_remIP", "");
+                        remoteIP = prefs.getString("key_remIP", "0.0.0.0");
                         if (remoteIP.equals("0.0.0.0")){
                             Toast.makeText(getApplicationContext(), "WiFi is OFF\nRemote IP not set", Toast.LENGTH_LONG).show();
                         }else{
@@ -801,13 +808,15 @@ public class MainActivity extends AppCompatActivity {
         if (sUDP!=null){
             sUDP.setDestIP(ip);
             sUDP.setDestPort(port);
+            /*
         }else{
             pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
             sUDP = new UDPserver(this, ip, port, localPort, pass);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
-
+*/
         }
+
 
 //        pBar.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         pBar.setVisibility(View.VISIBLE);
@@ -941,35 +950,78 @@ public class MainActivity extends AppCompatActivity {
 //            String tagetIP = bundle.getString("Taget");
 //            String toastText = bundle.getString("Toast");
            int state = bundle.getInt("ThreadEnd", 0);
-           if (state==MSG_END_CONNECTING){
-               Log.i(TAG, " get MSG_END_CONNECTING");
-               pBar.setVisibility(View.INVISIBLE);
+           switch (state){
+               case MSG_END_CONNECTING:
+                   Log.i(TAG, " get MSG_END_CONNECTING");
+                   pBar.setVisibility(View.INVISIBLE);
 //               pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
-               if (connected){
+                   if (connected){
 //                   Boolean rem = ;
 
 //                 String locIP = bundle.getString("Local");
-                   remote=bundle.getBoolean("Remote");
-                   String link;
-                   if (remote){
-                       link = "MapAddr ("+ getLocalIP() + ") <--> " + "RemIP ("+ devLocalIP + ")";
+                       remote=bundle.getBoolean("Remote");
+                       String link;
+                       if (remote){
+                           link = mappedAddr + " ("+ getLocalIP() + ") <--> " + remoteIP +" ("+ devLocalIP + ")";
 
+                       }else{
+                           link = getLocalIP() + " <--> " + devLocalIP;
+                       }
+                       fText.setText(link);
+                       devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
+                       sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
+                       statusText.setText(R.string.connected);
+                       taskAfterConnect();
                    }else{
-                       link = getLocalIP() + " <--> " + devLocalIP;
+                       statusText.setText(R.string.no_connect);
+                       fText.setText("");
                    }
-                   fText.setText(link);
-                   devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
-                   sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
-                   statusText.setText(R.string.connected);
-                   taskAfterConnect();
-               }else{
-                   statusText.setText(R.string.no_connect);
-                   fText.setText("");
-               }
-
+                   break;
+               case MSG_GOT_MAP_ADDR:
+                   statusText.setText(mappedAddr +" : " + mappedPort);
+                   break;
            }
         }
     };
+
+    private void sendStunRequest(){
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                byte[] buf = new byte[20];
+                buf[1]=1;
+                buf[18]= (byte) 0xFF;
+                buf[19]= 0 ;
+
+                sUDP.sendUdpPacket(buf, 20, "216.93.246.18", 3478);
+                int att = 0;
+                while (((sUDP.getRecvBuff(0)!=1)||(sUDP.getRecvBuff(1)!=1))&&(att<200)){
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    att++;
+                }
+                Log.i(TAG, " SendPacket, time = " + att + "mS");
+
+                if (att<200){
+                    byte[] inBuf = sUDP.getRBuffer();
+                    mappedAddr = inBuf[28]+"."+inBuf[29]+"."+inBuf[30]+"."+inBuf[31];
+                    mappedPort = (inBuf[26]<<8)+inBuf[27];
+                    Bundle bundle = new Bundle();
+                    Message msg = handler.obtainMessage();
+                    bundle.putInt("StunGot", MSG_GOT_MAP_ADDR);
+                    msg.setData(bundle);
+                    handler.sendMessage(msg);
+                }
+
+            }
+        }).start();
+
+    }
+
 
     private void taskAfterConnect(){
 
@@ -1141,14 +1193,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
-        /*
-        if (sUDP == null) {
-            int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
-            sUDP = new UDPserver(this, deviceIP, devPort, localPort, pass);
-            Log.i(TAG, " askUDP, new sUDP" );
-            sUDP.start();
-        }
-        */
         int curID = sUDP.getCurrentID();
         curID++;
         sUDP.setCurrentID((byte) curID);
@@ -1192,14 +1236,6 @@ public class MainActivity extends AppCompatActivity {
     public boolean connectIsValid(){
         if (!devLocalIP.equals("")){
             byte[] outBuf = {ASK_IP};
-            /*
-            if (sUDP == null) {
-                int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
-                sUDP = new UDPserver(this, deviceIP, devPort, localPort, pass);
-                Log.i(TAG, " connectIsValid, new sUDP" );
-                sUDP.start();
-            }
-            */
             for (int i = 1; i <4 ; i++) {
                 sUDP.send(outBuf, outBuf.length, (byte) NO_CONFIRM, MSG_ANSW_IP, 0);
                 if (waitForConfirm(50)){

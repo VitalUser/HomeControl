@@ -33,6 +33,7 @@ public class StunActivity extends AppCompatActivity {
     private static final int STUN_RESPONCE = 0x0101;
 
 //  https://apprtc.appspot.com/ - Google public signalling server
+// stun.l.google.com:19302
 
     SharedPreferences prefs;
     Button startSTUN;
