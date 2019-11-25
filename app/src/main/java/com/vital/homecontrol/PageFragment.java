@@ -324,11 +324,7 @@ public class PageFragment extends Fragment {
                 int ind = getControlIndexByNum(num);
                 int cmd = controls.get(ind).getCmdNum();
                 Log.i(TAG, " button: "+num);
-                if (act.connected){
-                    act.sendCommand(cmd);
-                }else{
-                    Toast.makeText(getContext(), "No connection", Toast.LENGTH_SHORT).show();
-                }
+                act.sendCommand(cmd);
             }
         });
 
@@ -997,7 +993,7 @@ public class PageFragment extends Fragment {
                 byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
                 if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
 
-                    byte[] stat = act.sUDP.getRBuffer();
+                    byte[] stat = act.sUDP.getWB();
                     int count = stat[7]&0xFF;
                     ArrayList<Float> data = new ArrayList<>();
                     for (int i = count-1; i >=0 ; i--) {

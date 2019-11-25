@@ -34,7 +34,8 @@ public class UDPserver {
     private boolean packetUDPok;
     private boolean listen;
 
-    private byte[] recvBuff;
+    private byte[] workBuff;
+    private byte[] allBuff;
 //    Boolean recieved;
 
     UDPserver(Context context, String destIP, int destPort, int localPort, int pass){
@@ -42,7 +43,8 @@ public class UDPserver {
         this.destIP = destIP;
         this.destPort = destPort;
         this.localPort = localPort;
-        this.recvBuff = new byte[255];
+        this.workBuff = new byte[255];
+        this.allBuff = new byte[511];
         this.pass = pass;
         this.lastID = 0;
         this.currentID = 1;
@@ -77,7 +79,7 @@ public class UDPserver {
                             int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
                             if (ps == pass){
                                 if ((inData[3]&0xFF)!=lastID){
-                                    recvBuff = Arrays.copyOfRange(inData,7,len);
+                                    workBuff = Arrays.copyOfRange(inData,7,len);
                                     lastID= (byte) (inData[3]&0xFF);
 //                                recieved = true;
                                     Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
@@ -104,7 +106,7 @@ public class UDPserver {
                                  */
 
 
-                                    if (recvBuff[0]!=(byte)MSG_RCV_OK){
+                                    if (workBuff[0]!=(byte)MSG_RCV_OK){
                                         if ((inData[4]&0xFF)!=NO_CONFIRM){
                                             currentID++;
                                             byte[] buf = {(byte) MSG_RCV_OK};
@@ -122,7 +124,7 @@ public class UDPserver {
                                 intent.putExtra("Buffer", Arrays.copyOf(inData, len));
                                 LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
                             }else{
-                                recvBuff = Arrays.copyOf(inData, len);
+                                allBuff = Arrays.copyOf(inData, len);
 
                             }
                             packetUDPok = true;
@@ -186,12 +188,10 @@ public class UDPserver {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                DatagramSocket socketUDP = null;
+
                 Log.i(TAG, " Out: "+  ip + " : "+port);
                 Log.i(TAG, " Out: "+  byteArrayToHex(buffer, buffer.length));
-
-                try {
-                    socketUDP = new DatagramSocket(null);
+                try (DatagramSocket socketUDP = new DatagramSocket(null)) {
                     socketUDP.setReuseAddress(true);
                     socketUDP.bind(new InetSocketAddress(localPort));
                     DatagramPacket outUDP = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(ip), port);
@@ -199,35 +199,59 @@ public class UDPserver {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                finally {
-                    if (socketUDP != null){
-                        socketUDP.close();
-                    }
-                }
             }
         }).start();
 
     }
 
 
-    public int getRecvBuff(int index){
-        if (index<this.recvBuff.length){
-            return this.recvBuff[index]&0xFF;
+    public int getWBbyte(int index){
+        if (index<this.workBuff.length){
+            return this.workBuff[index]&0xFF;
         }else{
             return 0;
         }
     }
 
-    public byte[] getRBuffer(){
-        return this.recvBuff;
+    public byte[] getWBpart(int from, int to){
+        if ((from<to)&&(to<=this.workBuff.length)){
+            return Arrays.copyOfRange(this.workBuff, from, to);
+        }else{
+            return Arrays.copyOfRange(this.workBuff, 0, 0);
+        }
     }
 
+    public byte[] getWB(){
+        return this.workBuff;
+    }
 
+    public int getABbyte(int index){
+        if (index<this.allBuff.length){
+            return this.allBuff[index]&0xFF;
+        }else{
+            return 0;
+        }
+    }
 
+    public byte[] getABpart(int from, int to){
+        if ((from<to)&&(to<=this.allBuff.length)){
+            return Arrays.copyOfRange(this.allBuff, from, to);
+        }else{
+            return Arrays.copyOfRange(this.allBuff, 0, 0);
+        }
+    }
+
+    public byte[] getAB(){
+        return this.allBuff;
+    }
 
     public boolean getConfirm(){
         return this.confirmOk;
     }
+
+
+
+
 
     public boolean getPacketOk(){
         return this.packetUDPok;

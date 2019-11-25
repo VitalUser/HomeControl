@@ -310,7 +310,7 @@ public class StunActivity extends AppCompatActivity {
         Log.i(TAG, " SendPacket, time = " + att + "mS");
 
         if (att<200){
-            parceUDPpacket(sUDP.getRBuffer());
+            parceUDPpacket(sUDP.getAB());
         }
 
         return ((att<200)&&(rcvID==0xFF00+param));
