@@ -161,8 +161,7 @@ public class UDPserver {
                 outData[5] = 0;
                 outData[6] = 0;
                 String msg = destIP;
-                Log.i(TAG, " Out: "+  destIP + " : "+destPort);
-                Log.i(TAG, " Out: "+  byteArrayToHex(outData, outData.length));
+                Log.i(TAG, " Out: "+  destIP + " : "+destPort+" - "+byteArrayToHex(outData, outData.length));
 
                 try {
                     socketUDP = new DatagramSocket(null);

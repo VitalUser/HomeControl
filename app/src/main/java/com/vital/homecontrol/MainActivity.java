@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
     static final int RK_STUN = 1002;
     public int defaultPort = 55555;
     private int remPort = 0;
-    static final int localPort = 55550;
+    static final int localPort = 55551;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
     static final String MSG_RCV = "MSG_received";
@@ -101,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
     static final int STUN_RESPONCE = 0x0101;
 
     static final int ASK_IP                     =  0x01;
+    static final int BREAK_LINK                 =  0x02;
     static final int ASK_COUNT_DEVS             =  0x04;
     static final int SET_W_COMMAND		   	    =  0x05;
 
@@ -401,6 +402,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         Log.i(TAG, " onPause in MainActivity " );
+        if (sUDP!=null){
+            byte[] outBuf = {BREAK_LINK, 0};
+//            sUDP.send(outBuf, outBuf.length, (byte) 0, 0, 0);
+            askUDP(outBuf, 0, 0);
+        }
         if (netRecieverRegistered){
             unregisterReceiver(netReciever);
             netRecieverRegistered=false;
@@ -483,6 +489,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, " onDestroy in MainActivity ");
         super.onDestroy();
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
