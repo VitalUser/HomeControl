@@ -64,6 +64,8 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.currentThread;
@@ -85,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
     static final int RK_STUN = 1002;
     public int defaultPort = 55555;
     private int remPort = 0;
-    static final int localPort = 55551;
+    static final int localPort = 55550;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
     static final String MSG_RCV = "MSG_received";
@@ -165,6 +167,8 @@ public class MainActivity extends AppCompatActivity {
     TextView sensCountText;
     TextView fText;
     UDPserver sUDP;
+    Timer timer;
+    TimerTask task;
 
 
     private ConnectivityManager connMgr;
@@ -338,6 +342,16 @@ public class MainActivity extends AppCompatActivity {
 
         Log.i(TAG, "OnCreate" );
 
+        task = new TimerTask() {
+            @Override
+            public void run() {
+                Log.i(TAG, "TimerTask" );
+
+            }
+        };
+
+        timer = new Timer();
+
 
     }
 
@@ -425,6 +439,8 @@ public class MainActivity extends AppCompatActivity {
         }
         String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
         copyFile(fPref, storageDir+"/Preferences/preferences.xml");
+
+        timer.cancel();
     }
 
     @Override
@@ -433,6 +449,9 @@ public class MainActivity extends AppCompatActivity {
 //        Log.i(TAG, " execDevs.size() = "+execDevs.size());
 //        connected=false;
 //        if (connectIsValid()){
+        if (sUDP!=null){
+            askIP();
+        }
         if (connected){
 //            connected=true;
             devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
@@ -460,6 +479,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.i(TAG, " onResume in MainActivity " );
+        timer.schedule(task, 1000, 2000);
     }
 
     @Override
@@ -813,9 +833,13 @@ public class MainActivity extends AppCompatActivity {
     }
     */
 
-    private boolean isIpFound(){
+    private boolean askIP(){
         byte[] outBuf = {ASK_IP};
-        boolean result = askUDP(outBuf, MSG_ANSW_IP, 0);
+        return  askUDP(outBuf, MSG_ANSW_IP, 0);
+    }
+
+    private boolean isIpFound(){
+        boolean result = askIP();
         if (result){
             devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getWBbyte(1),sUDP.getWBbyte(2),sUDP.getWBbyte(3),sUDP.getWBbyte(4)); // & 0xFF need for unsigned
             Log.i(TAG, " got answer IP: "+devLocalIP );
