@@ -18,6 +18,8 @@
     <string name="network_setting">Сетевые установки</string>
     <string name="connected">соедиен</string>
     <string name="no_net">Нет сети</string>
+    <string name="typ_WiFi">WiFi</string>
+    <string name="typ_Mobile">Мобильная сеть</string>
     <string name="set_dev_num">Назначить модуль</string>
     <string name="set_cmd_num">Номер команды</string>
     <string name="set_last_change">Последнее изменение</string>
@@ -69,4 +71,7 @@
     <string name="port">Удаленный Порт</string>
     <string name="checkNAT">Check NAT type</string>
     <string name="Start">Start</string>
+    <string name="cb_StaticIPtext">Статический IP</string>
+    <string name="signalIPtext">Адрес сигнального сервера</string>
+    <string name="no_sns">нет датчика</string>
 </resources>

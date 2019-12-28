@@ -21,10 +21,11 @@ public class UDPserver {
     private static final int MSG_RCV_OK      =  0xA5;
     private static final int NO_CONFIRM      =  0xFF;
 
+    static final int localPort = 55550;
+
     private Context context;
     private String destIP;
     private int destPort;
-    private int localPort;
     private int pass;
     byte lastID;
     private byte currentID;
@@ -38,11 +39,10 @@ public class UDPserver {
     private byte[] allBuff;
 //    Boolean recieved;
 
-    UDPserver(Context context, String destIP, int destPort, int localPort, int pass){
+    UDPserver(Context context, int pass){
         this.context = context;
-        this.destIP = destIP;
-        this.destPort = destPort;
-        this.localPort = localPort;
+        this.destIP = "0.0.0.0";
+        this.destPort = 0;
         this.workBuff = new byte[255];
         this.allBuff = new byte[511];
         this.pass = pass;
@@ -182,7 +182,7 @@ public class UDPserver {
 
     }
 
-    void sendUdpPacket(final byte[] buffer, final int len, final String ip, final int port){
+    void sendUdpPacket(final byte[] buffer, final String ip, final int port){
         packetUDPok=false;
         new Thread(new Runnable() {
             @Override

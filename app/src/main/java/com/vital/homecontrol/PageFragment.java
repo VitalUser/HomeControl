@@ -27,12 +27,12 @@ import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import static com.vital.homecontrol.MainActivity.CMD_ASK_STATISTIC;
 import static com.vital.homecontrol.MainActivity.CMD_MSG_ANALOG_DATA;
@@ -45,7 +45,6 @@ import static com.vital.homecontrol.MainActivity.MSG_RE_SENT_W;
 import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_STATE;
 import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
-import static com.vital.homecontrol.MainActivity.byteArrayToHex;
 
 public class PageFragment extends Fragment {
     private static final String TAG = "MyclassPageFragment";
@@ -220,13 +219,13 @@ public class PageFragment extends Fragment {
         switch (orientation){
             case Configuration.ORIENTATION_LANDSCAPE:
                 sufOr="_L_";
-                cols = Integer.parseInt(prefs.getString("key_colsCount_L", "6"));
-                rows = Integer.parseInt(prefs.getString("key_rowsCount_L", "4"));
+                cols = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_L", "6")));
+                rows = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_L", "4")));
                 break;
             case Configuration.ORIENTATION_PORTRAIT:
                 sufOr="_P_";
-                cols = Integer.parseInt(prefs.getString("key_colsCount_P", "4"));
-                rows = Integer.parseInt(prefs.getString("key_rowsCount_P", "6"));
+                cols = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_P", "4")));
+                rows = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_P", "6")));
                 break;
             default:
                 sufOr="_N_";
@@ -234,7 +233,7 @@ public class PageFragment extends Fragment {
                 rows =3;
         }
 
-        TableLayout tl = (TableLayout)view.findViewById(R.id.tlb_Layout);
+        TableLayout tl = view.findViewById(R.id.tlb_Layout);
         tl.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.MATCH_PARENT));
         tl.setStretchAllColumns(true);
 
@@ -289,7 +288,7 @@ public class PageFragment extends Fragment {
             }
             tl.addView(tableRow, row-1);
         }
-        mTable = (ViewGroup) tl;
+        mTable = tl;
 
         Log.i(TAG, " onCreateView PageFragment " + mPage);
         return view;
@@ -304,7 +303,7 @@ public class PageFragment extends Fragment {
     private View makeButton(int cInd, int row, int col){
         LinearLayout cellButton = (LinearLayout) LayoutInflater.from(getActivity()).inflate(R.layout.control_element, vGroup, false);
         cellButton.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
-        int pd = Integer.parseInt(prefs.getString("key_button_padding", "2"));
+        int pd = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_button_padding", "2")));
         cellButton.setPadding(pd,pd,pd,pd);
         Button btn = cellButton.findViewById(R.id.ctr_button);
         registerForContextMenu(btn);
@@ -370,7 +369,7 @@ public class PageFragment extends Fragment {
         if (sInd>=0){
             sensValue.setText(act.sensors.get(sInd).getValue(sensType));
         }else{
-            sensValue.setText("No sns");
+            sensValue.setText(getString(R.string.no_sns));
         }
 
 
@@ -485,7 +484,7 @@ public class PageFragment extends Fragment {
 
         for (int i = 0; i <controls.size() ; i++) {
             if (controls.get(i).isOtherLocExist(orientation)){
-                String existItem = String.valueOf(controls.get(i).getNum())+"; ";
+                String existItem = controls.get(i).getNum()+"; ";
                 switch (controls.get(i).getType()){
                     case TYPE_BUTTON_SQ:
                         existItem += getString(R.string.button)+" "+controls.get(i).getText();
@@ -511,7 +510,7 @@ public class PageFragment extends Fragment {
             return false;
         }
         act = (MainActivity)getActivity();
-        orientation = act.getResources().getConfiguration().orientation;
+        orientation = Objects.requireNonNull(act).getResources().getConfiguration().orientation;
         final String orientTag;
         if (orientation==Configuration.ORIENTATION_PORTRAIT){
             orientTag = BTN_PA;
@@ -591,7 +590,7 @@ public class PageFragment extends Fragment {
                 dlg = new AlertDialog.Builder(getActivity());
                 final String[] sensList = new String[act.sensors.size()];
                 for (int i = 0; i <sensList.length ; i++) {
-                    sensList[i]= String.valueOf(act.sensors.get(i).getNum()) + "; "+act.sensors.get(i).getModelString();
+                    sensList[i]= act.sensors.get(i).getNum() + "; "+act.sensors.get(i).getModelString();
                 }
 
                 dlg.setTitle(R.string.sensor_choice);
@@ -743,13 +742,13 @@ public class PageFragment extends Fragment {
                 dlg.setItems(devNums, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        int num = controls.get(cInd).getNum();
+//                        int num = controls.get(cInd).getNum();
 //                        String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
                         int dNum = Integer.parseInt(devNums[i]);
                         controls.get(cInd).setNumDev(dNum);
                         act.saveInt(BTN_NUMDEV+suff, dNum);
 
-                        num = act.getDevIndex(dNum);
+                        int num = act.getDevIndex(dNum);
                         if (num>=0){
                             updateButtonsState(dNum, act.execDevs.get(num).getOutState());
                         }
@@ -848,7 +847,7 @@ public class PageFragment extends Fragment {
                 View v = inflater.inflate(R.layout.last_change_getter, vGroup, false);
 
                 TextView cmdTitle = v.findViewById(R.id.cmdN_text);
-                txt = getText(R.string.set_cmd_num) + " (" + Integer.toString(controls.get(cInd).getCmdNum()) + ")";
+                txt = getText(R.string.set_cmd_num) + " (" + controls.get(cInd).getCmdNum() + ")";
                 cmdTitle.setText(txt);
                 final EditText cmdN = v.findViewById(R.id.cmdN_edit);
                 cmdN.setSelectAllOnFocus(true);
@@ -856,7 +855,7 @@ public class PageFragment extends Fragment {
                 cmdN.setText(txt);
 
                 TextView ndevTitle = v.findViewById(R.id.devN_text);
-                txt = getText(R.string.set_dev_num) + " (" + Integer.toString(controls.get(cInd).getNumDev()) + ")";
+                txt = getText(R.string.set_dev_num) + " (" + controls.get(cInd).getNumDev() + ")";
                 ndevTitle.setText(txt);
                 final EditText devN = v.findViewById(R.id.devN_edit);
                 devN.setSelectAllOnFocus(true);
@@ -864,7 +863,7 @@ public class PageFragment extends Fragment {
                 devN.setText(txt);
 
                 TextView maskTitle = v.findViewById(R.id.mask_text);
-                txt = getText(R.string.set_outmask) + " (" + Integer.toString(controls.get(cInd).getOutMask()) + ")";
+                txt = getText(R.string.set_outmask) + " (" + controls.get(cInd).getOutMask() + ")";
                 maskTitle.setText(txt);
                 final EditText msk = v.findViewById(R.id.mask_edit);
                 msk.setSelectAllOnFocus(true);
@@ -1020,7 +1019,7 @@ public class PageFragment extends Fragment {
                     intent.putExtra("period", (stat[5]&0xFF)<<8 | stat[6]&0xFF);
 //                    intent.putExtra("deviceIP", act.deviceIP);
 //                    intent.putExtra("devPort", act.devPort);
-                    intent.putExtra("localPort", act.localPort);
+//                    intent.putExtra("localPort", act.localPort);
                     intent.putExtra("measureTyp", controls.get(cInd).getUpText());
                     intent.putExtra("snsText", controls.get(cInd).getText());
                     intent.setClass(act.getApplicationContext(), StatActivity.class);
@@ -1071,17 +1070,15 @@ public class PageFragment extends Fragment {
         public void onReceive(Context context, Intent intent) {
             byte[] inBuf = intent.getByteArrayExtra("Buffer");
             byte[] rbuff = Arrays.copyOfRange(inBuf, 7, inBuf.length);
-            Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+act.byteArrayToHex(inBuf, inBuf.length));
+//            Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+act.byteArrayToHex(inBuf, inBuf.length));
             parceFromHub(rbuff);
         }
 
     };
 
     private void parceFromHub(byte[] buf){
-        switch (buf[0]){
-            case MSG_RE_SENT_W:
-                parceFromDevice(buf);
-                break;
+        if (buf[0] == MSG_RE_SENT_W) {
+            parceFromDevice(buf);
         }
     }
 
@@ -1089,9 +1086,9 @@ public class PageFragment extends Fragment {
         int devN = buf[4]&0xFF;
         int outState = buf[5]&0xFF;
         int cmd = buf[3]&0xFF;
-        int orientation = act.getResources().getConfiguration().orientation;
-        boolean found;
-        int ind;
+//        int orientation = act.getResources().getConfiguration().orientation;
+//        boolean found;
+//        int ind;
         switch (cmd){
             case MSG_DEV_TYPE:
                 /*
@@ -1115,8 +1112,6 @@ public class PageFragment extends Fragment {
                 break;
 
             case MSG_OUT_STATE:
-                updateButtonsState(devN, outState);
-                break;
 
             case MSG_STATE:
                 updateButtonsState(devN, outState);

@@ -13,18 +13,30 @@
              android:selectAllOnFocus="true"
              android:defaultValue="0"/>
 
+         <SwitchPreference
+             android:title="@string/cb_StaticIPtext"
+             android:defaultValue="false"
+             android:key="id_cb_StaticIP" />
+
          <com.vital.homecontrol.IPpickerPreference
              android:title="@string/pref_remIP"
+             android:dependency="id_cb_StaticIP"
              android:key="key_remIP"/>
 
          <EditTextPreference
              android:key="key_port"
+             android:dependency="id_cb_StaticIP"
              android:title="@string/port"
              android:inputType="number"
              android:selectAllOnFocus="true"
              android:defaultValue="55555"/>
 
-         <CheckBoxPreference
+         <com.vital.homecontrol.IPpickerPreference
+             android:title="@string/signalIPtext"
+             android:key="key_signalIP"
+             android:defaultValue="192.168.0.253"/>
+
+         <SwitchPreference
              android:title="@string/checkboxitem"
              android:defaultValue="true"
              android:key="id_cb_WorkWiFi" />

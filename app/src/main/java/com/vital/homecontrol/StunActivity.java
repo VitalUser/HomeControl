@@ -176,7 +176,7 @@ public class StunActivity extends AppCompatActivity {
 
 
         if (sUDP == null) {
-            sUDP = new UDPserver(this, "", 0, 55550, 0);
+            sUDP = new UDPserver(this,  0);
             Log.i(TAG, " StunUDP, new sUDP" );
             sUDP.start();
         }
@@ -297,7 +297,7 @@ public class StunActivity extends AppCompatActivity {
         buf[18]= (byte) 0xFF;
         buf[19]= param ;
 
-        sUDP.sendUdpPacket(buf, 20, ip, port);
+        sUDP.sendUdpPacket(buf, ip, port);
         int att = 0;
         while ((!sUDP.getPacketOk())&&(att<200)){
             try {

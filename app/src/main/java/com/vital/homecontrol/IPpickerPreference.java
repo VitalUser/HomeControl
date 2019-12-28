@@ -4,15 +4,21 @@ import android.content.Context;
 import android.preference.DialogPreference;
 import android.preference.PreferenceManager;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.widget.NumberPicker;
 
+import java.util.Objects;
+
 public class IPpickerPreference extends DialogPreference {
-    String ip;
-    NumberPicker p1;
-    NumberPicker p2;
-    NumberPicker p3;
-    NumberPicker p4;
+
+    private static final String TAG = "MyclassIPpicker";
+
+    private String ip;
+    private NumberPicker p1;
+    private NumberPicker p2;
+    private NumberPicker p3;
+    private NumberPicker p4;
 
 // http://qaru.site/questions/79278/concise-way-of-writing-new-dialogpreference-classes
 // https://gist.github.com/thom-nic/959884
@@ -21,18 +27,19 @@ public class IPpickerPreference extends DialogPreference {
     public IPpickerPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
         setDialogLayoutResource(R.layout.numberpicker_dialog);
-        ip = PreferenceManager.getDefaultSharedPreferences(context).getString("key_remIP", "0.0.0.0");
-        /*
-        Log.i(TAG, " IPpickerPreference ip = " + ip);
+        ip = "0.0.0.0";
         Log.i(TAG, " AttributeCount = " + attrs.getAttributeCount());
         for (int i=0;i<attrs.getAttributeCount();i++) {
             String attr = attrs.getAttributeName(i);
             String val  = attrs.getAttributeValue(i);
             Log.i(TAG, " IPpickerPreference attr = " + attr + ", val = " + val);
-            if (attr.equalsIgnoreCase("ip")) {
+            if (attr.equalsIgnoreCase("key")) {
+                ip = PreferenceManager.getDefaultSharedPreferences(context).getString(val, "0.0.0.0");
+            }
+            if ((attr.equalsIgnoreCase("defaultvalue"))||(Objects.equals(ip, "0.0.0.0"))){
+                ip = val;
             }
         }
-        */
 
     }
     @Override
@@ -69,7 +76,7 @@ public class IPpickerPreference extends DialogPreference {
     }
 
 
-    public String getIp() {
+    String getIp() {
         return ip;
     }
 }

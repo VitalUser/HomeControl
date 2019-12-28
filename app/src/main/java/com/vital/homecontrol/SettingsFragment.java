@@ -1,6 +1,5 @@
 package com.vital.homecontrol;
 
-import android.app.Fragment;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Environment;
@@ -8,10 +7,11 @@ import android.preference.EditTextPreference;
 import android.preference.ListPreference;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
+import android.preference.SwitchPreference;
 import android.util.Log;
-import android.widget.NumberPicker;
 
 import java.io.File;
+import java.util.Objects;
 
 public class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -27,11 +27,17 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference pass = (EditTextPreference) findPreference("key_udppass");
         pass.setSummary(pass.getText() + " (" + Integer.toHexString(Integer.parseInt(pass.getText())).toUpperCase() + ")");
 
-        IPpickerPreference iPpickerPreference = (IPpickerPreference) findPreference("key_remIP");
-        iPpickerPreference.setSummary((CharSequence) iPpickerPreference.getIp());
+        IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
+        iPpicker.setSummary(iPpicker.getIp());
+
+        IPpickerPreference signaliPpicker = (IPpickerPreference) findPreference("key_signalIP");
+        signaliPpicker.setSummary(signaliPpicker.getIp());
 
         EditTextPreference port = (EditTextPreference) findPreference("key_port");
         port.setSummary(port.getText());
+
+        SwitchPreference cb_static = (SwitchPreference)findPreference("id_cb_StaticIP");
+        signaliPpicker.setEnabled(!cb_static.isChecked());
 
         EditTextPreference timeout = (EditTextPreference) findPreference("key_timeout");
         timeout.setSummary(timeout.getText());
@@ -64,9 +70,9 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
                 CharSequence[] entries = new CharSequence[fAr.length];
                 CharSequence[] entryValues = new CharSequence[fAr.length];
                 for (int i = 0; i <fAr.length ; i++) {
-                    entries[i] = fAr[i].getName().toString();
+                    entries[i] = fAr[i].getName();
                     entryValues[i] = fAr[i].toString();
-                    if (defName.equals(fAr[i].toString())){
+                    if (Objects.equals(defName, fAr[i].toString())){
                         names.setDefaultValue(fAr[i].toString());
                     }
                 }
@@ -88,20 +94,30 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         Log.i(TAG, " onSharedPreferenceChanged (fragment): s = " + s);
         EditTextPreference editText;
+        EditTextPreference remport = (EditTextPreference) findPreference("key_port");
+        IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
+        IPpickerPreference signaliPpicker = (IPpickerPreference) findPreference("key_signalIP");
         switch (s){
             case "key_udppass":
                 EditTextPreference pass = (EditTextPreference) findPreference(s);
                 pass.setSummary(pass.getText() + " (" + Integer.toHexString(Integer.parseInt(pass.getText())).toUpperCase() + ")");
                 break;
             case "key_remIP":
-                IPpickerPreference iPpickerPreference = (IPpickerPreference) findPreference(s);
-                iPpickerPreference.setSummary((CharSequence) iPpickerPreference.getIp());
+                iPpicker.setSummary(iPpicker.getIp());
                 break;
             case "key_port":
-                EditTextPreference port = (EditTextPreference) findPreference(s);
-                port.setSummary(port.getText());
+                remport.setSummary(remport.getText());
                 break;
+            case "key_signalIP":
+                signaliPpicker.setSummary(signaliPpicker.getIp());
+                break;
+            case "id_cb_StaticIP":
+                SwitchPreference cb_static = (SwitchPreference)findPreference(s);
+                signaliPpicker.setEnabled(!cb_static.isChecked());
+                break;
+
             case "key_theme":
+            case "key_names":
                 ListPreference theme = (ListPreference) findPreference(s);
                 theme.setSummary(theme.getEntry());
                 break;
@@ -113,10 +129,6 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
             case "key_button_padding":
                 editText = (EditTextPreference) findPreference(s);
                 editText.setSummary(editText.getText());
-                break;
-            case "key_names":
-                ListPreference names = (ListPreference) findPreference(s);
-                names.setSummary(names.getEntry());
                 break;
         }
     }

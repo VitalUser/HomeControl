@@ -20,6 +20,8 @@
     <string name="network_setting">Network Setting</string>
     <string name="connected">Connected</string>
     <string name="no_net">No network</string>
+    <string name="typ_WiFi">WiFi</string>
+    <string name="typ_Mobile">Mobile</string>
     <string name="set_dev_num">Set Device number</string>
     <string name="set_cmd_num">Set Command</string>
     <string name="set_outmask">Set Out mask</string>
@@ -69,4 +71,7 @@
     <string name="port">Remote Port</string>
     <string name="checkNAT">Check NAT type</string>
     <string name="Start">Start</string>
+    <string name="cb_StaticIPtext">Static IP</string>
+    <string name="signalIPtext">Signal server IP</string>
+    <string name="no_sns">no sensor</string>
 </resources>

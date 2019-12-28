@@ -312,7 +312,7 @@ public class StatActivity extends AppCompatActivity {
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (sUDP == null) {
             int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
-            sUDP = new UDPserver(this, deviceIP, devPort, localPort, pass);
+            sUDP = new UDPserver(this, pass);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
         }
