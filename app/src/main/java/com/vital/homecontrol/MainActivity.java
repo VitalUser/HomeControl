@@ -240,6 +240,55 @@ public class MainActivity extends AppCompatActivity {
         String stPort = prefs.getString("key_port", "0");
         remPort = Integer.parseInt(stPort);
 
+        initiateStorage();
+
+        setContentView(R.layout.activity_main);
+
+        pBar = findViewById(R.id.progressBar);
+        pBar.setVisibility(View.INVISIBLE);
+//        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
+        statusText = findViewById(R.id.status_text);
+        statusText.setText("");
+        destIPtext = findViewById(R.id.target_IP_text);
+        destIPtext.setText("");
+        localIPtext = findViewById(R.id.local_IP_text);
+        localIPtext.setText("");
+        devCountText = findViewById(R.id.devcount_text);
+        devCountText.setText("0");
+        sensCountText = findViewById(R.id.senscount_text);
+        sensCountText.setText("0");
+        fText = findViewById(R.id.f_text);
+
+        updateConfig();
+
+        viewPager = (ViewPager) findViewById(R.id.viewPager);
+        roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
+        viewPager.setAdapter(roomAdapter);
+
+        tabLayout = (TabLayout)findViewById(R.id.tabs);
+        tabLayout.setupWithViewPager(viewPager, true);
+
+        wifiMgr = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        connMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
+
+        Log.i(TAG, "OnCreate" );
+
+        task = new TimerTask() {
+            @Override
+            public void run() {
+                Log.i(TAG, "TimerTask" );
+
+            }
+        };
+
+        timer = new Timer();
+
+
+    }
+
+    private void initiateStorage(){
 
         //https://toster.ru/q/302804
 
@@ -304,53 +353,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         }
-
-
-//        namesFileName = Environment.getExternalStorageDirectory().toString()+"/HomeControl/Names";
-
-
-        setContentView(R.layout.activity_main);
-
-        pBar = findViewById(R.id.progressBar);
-        pBar.setVisibility(View.INVISIBLE);
-//        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
-        statusText = findViewById(R.id.status_text);
-        statusText.setText("");
-        destIPtext = findViewById(R.id.target_IP_text);
-        destIPtext.setText("");
-        localIPtext = findViewById(R.id.local_IP_text);
-        localIPtext.setText("");
-        devCountText = findViewById(R.id.devcount_text);
-        devCountText.setText("0");
-        sensCountText = findViewById(R.id.senscount_text);
-        sensCountText.setText("0");
-        fText = findViewById(R.id.f_text);
-
-        updateConfig();
-
-        viewPager = (ViewPager) findViewById(R.id.viewPager);
-        roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
-        viewPager.setAdapter(roomAdapter);
-
-        tabLayout = (TabLayout)findViewById(R.id.tabs);
-        tabLayout.setupWithViewPager(viewPager, true);
-
-        wifiMgr = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        connMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
-
-        Log.i(TAG, "OnCreate" );
-
-        task = new TimerTask() {
-            @Override
-            public void run() {
-                Log.i(TAG, "TimerTask" );
-
-            }
-        };
-
-        timer = new Timer();
 
 
     }
