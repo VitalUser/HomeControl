@@ -75,8 +75,9 @@ import static java.lang.Thread.sleep;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MyclassMain";
-    
-    private Config config;
+//    private static final String TAG1 = "MyMain";
+
+    private Config config = (Config)getLastNonConfigurationInstance();
     private Properties namesFile;
     private String configPath;
     public String namesFileName;
@@ -167,8 +168,8 @@ public class MainActivity extends AppCompatActivity {
     TextView sensCountText;
     TextView fText;
     UDPserver sUDP;
-    Timer timer;
-    TimerTask task;
+//    Timer timer;
+//    TimerTask task;
 
 
     private ConnectivityManager connMgr;
@@ -227,6 +228,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState==null){
 //            Log.i(TAG, " First onCreate" );
 //            connected = false;
+//            Log.i(TAG1, "OnCreate : savedInstanceState==null" );
             netRecieverRegistered = false;
             udpRecieverRegistered = false;
 //            msgRecieverRegistered = false;
@@ -234,6 +236,9 @@ public class MainActivity extends AppCompatActivity {
 //            deviceIP = stringIP(getBroadcastWiFiIP());
             devLocalIP = "";
             remote=false;
+        }else{
+//            Log.i(TAG1, "OnCreate : savedInstanceState not null" );
+
         }
         super.onCreate(savedInstanceState);
         remoteIP = prefs.getString("key_remIP", "0.0.0.0");
@@ -339,9 +344,11 @@ public class MainActivity extends AppCompatActivity {
         connMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
 
         sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
+//        Log.i(TAG1, "OnCreate, after getLastCustomNonConfigurationInstance sUDP = "+ (sUDP==null? "null" : sUDP.toString()));
 
         Log.i(TAG, "OnCreate" );
 
+        /*
         task = new TimerTask() {
             @Override
             public void run() {
@@ -350,7 +357,9 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        timer = new Timer();
+         */
+
+//        timer = new Timer();
 
 
     }
@@ -383,6 +392,8 @@ public class MainActivity extends AppCompatActivity {
         return sUDP;
     }
 
+
+
     // http://developer.alexanderklimov.ru/android/theory/activity_methods.php
 // http://developer.alexanderklimov.ru/android/theory/parcelable.php
     @Override
@@ -402,6 +413,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
+        Log.i(TAG, " onRestoreInstanceState, deviceIP = " + devLocalIP );
         connected = savedInstanceState.getBoolean(STATE_CONNECTED);
         devLocalIP = savedInstanceState.getString(STATE_DESTIP);
         workWiFi = savedInstanceState.getBoolean(STATE_WIFI);
@@ -440,7 +452,7 @@ public class MainActivity extends AppCompatActivity {
         String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
         copyFile(fPref, storageDir+"/Preferences/preferences.xml");
 
-        timer.cancel();
+//        timer.cancel();
     }
 
     @Override
@@ -479,7 +491,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.i(TAG, " onResume in MainActivity " );
-        timer.schedule(task, 1000, 2000);
+//        timer.schedule(task, 1000, 2000);
     }
 
     @Override
