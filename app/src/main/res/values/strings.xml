@@ -43,6 +43,7 @@
     <string name="upd_link">Update Link</string>
     <string name="sensor">Sensor</string>
     <string name="button">Button</string>
+    <string name="device">Device</string>
     <string name="no_exist_elms">No Existing control elements</string>
     <string name="no_temp_sns">No temperature sensors</string>
     <string name="enter_cmd">Enter command</string>
@@ -74,4 +75,10 @@
     <string name="cb_StaticIPtext">Static IP</string>
     <string name="signalIPtext">Signal server IP</string>
     <string name="no_sns">no sensor</string>
+    <string name="serial">Device serial number</string>
+    <string name="no_serial">No device serial number</string>
+    <string name="not_set_signal_IP">Signal Server IP not set</string>
+    <string name="no_signal_IP">Signal server inaccessible</string>
+    <string name="no_host_at_signal_IP">not found in signal server</string>
+    <string name="no_remIP">Remote adress or port not set</string>
 </resources>

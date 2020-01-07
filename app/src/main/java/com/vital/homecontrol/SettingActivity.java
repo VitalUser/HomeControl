@@ -32,7 +32,10 @@ public class SettingActivity extends PreferenceActivity {
 
     }
 
-
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
 }
 
 

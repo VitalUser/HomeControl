@@ -326,7 +326,7 @@ public class StatActivity extends AppCompatActivity {
             }else {
                 att=NO_CONFIRM;
             }
-            sUDP.send(inBuf, inBuf.length, (byte) att, hostCmd, devCmd);
+            sUDP.send(inBuf, (byte) att, hostCmd, devCmd);
             if (waitForConfirm()){
                 Log.i(TAG, " askUDP : confirm "+Integer.toHexString(hostCmd)+ " :" + i);
                 return true;

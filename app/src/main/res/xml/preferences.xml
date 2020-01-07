@@ -34,7 +34,14 @@
          <com.vital.homecontrol.IPpickerPreference
              android:title="@string/signalIPtext"
              android:key="key_signalIP"
-             android:defaultValue="192.168.0.253"/>
+             android:defaultValue="0.0.0.0"/>
+
+         <EditTextPreference
+             android:key="key_serial"
+             android:title="@string/serial"
+             android:inputType="number"
+             android:selectAllOnFocus="true"
+             android:defaultValue="0"/>
 
          <SwitchPreference
              android:title="@string/checkboxitem"

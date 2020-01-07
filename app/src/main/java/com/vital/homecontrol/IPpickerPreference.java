@@ -36,7 +36,7 @@ public class IPpickerPreference extends DialogPreference {
             if (attr.equalsIgnoreCase("key")) {
                 ip = PreferenceManager.getDefaultSharedPreferences(context).getString(val, "0.0.0.0");
             }
-            if ((attr.equalsIgnoreCase("defaultvalue"))||(Objects.equals(ip, "0.0.0.0"))){
+            if ((attr.equalsIgnoreCase("defaultvalue"))&&(Objects.equals(ip, "0.0.0.0"))){
                 ip = val;
             }
         }

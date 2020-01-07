@@ -43,6 +43,7 @@
     <string name="upd_link">Обновить связь</string>
     <string name="sensor">Датчик</string>
     <string name="button">Кнопка</string>
+    <string name="device">Устройство</string>
     <string name="no_exist_elms">Нет подходящих элементов управления</string>
     <string name="no_temp_sns">Нет температурных датчиков</string>
     <string name="enter_cmd">Введите номер команды</string>
@@ -74,4 +75,10 @@
     <string name="cb_StaticIPtext">Статический IP</string>
     <string name="signalIPtext">Адрес сигнального сервера</string>
     <string name="no_sns">нет датчика</string>
+    <string name="serial">Серийный номер сетевого модуля</string>
+    <string name="no_serial">Отсутствует серийный номер сетевого модуля</string>
+    <string name="not_set_signal_IP">Не установлен адрес Сигнального сервера</string>
+    <string name="no_signal_IP">Нет ответа от сигнального сервера</string>
+    <string name="no_host_at_signal_IP">не найдено  на сигнальном сервере</string>
+    <string name="no_remIP">Статический адрес или порт устройства не установлен</string>
 </resources>

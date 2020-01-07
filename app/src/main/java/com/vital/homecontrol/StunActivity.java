@@ -128,30 +128,6 @@ public class StunActivity extends AppCompatActivity {
     }
 
 
-    /*
-    private ProgressDialog progressDialog = null;
-
-    private void showProgress(String text){
-        if (progressDialog == null){
-            try {
-                progressDialog = ProgressDialog.show(this, "", text);
-                progressDialog.setCancelable(false);
-            } catch (Exception e){
-
-            }
-        }
-    }
-
-    public void hideProgress(){
-        if (progressDialog != null){
-            progressDialog.dismiss();
-            progressDialog = null;
-        }
-    }
-
-
-     */
-
     private Boolean gotResponce(String ip, int port, byte param){
         int att = 0;
         while ((att<8) && (!sendRequest(ip, port, param))){

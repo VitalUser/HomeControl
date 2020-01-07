@@ -2,7 +2,6 @@ package com.vital.homecontrol;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -16,7 +15,6 @@ import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
@@ -33,22 +31,18 @@ import android.os.Bundle;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
 import android.support.design.widget.TabLayout;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,6 +51,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -65,8 +60,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.currentThread;
@@ -86,9 +79,10 @@ public class MainActivity extends AppCompatActivity {
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
     static final int RK_STUN = 1002;
-    public int defaultPort = 55555;
-    private int remPort = 0;
+    static final int DEF_PASS        =  0xA8A929;
     static final int localPort = 55550;
+    static final String defStunIP = "216.93.246.18";
+    static final int defStunPort = 3478;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
     static final String MSG_RCV = "MSG_received";
@@ -142,6 +136,11 @@ public class MainActivity extends AppCompatActivity {
     static final int CMD_ASK_SENSOR_STATE       =  0x97;
     static final int CMD_ASK_TYPE               =  0x9E;
 
+    static final int PLACE_GUEST_DATA           =  0xA2;
+    static final int MSG_CELL_DATA              =  0xA9;
+    static final int MSG_GUEST_DATA_PLACED      =  0xAB;
+    static final int MSG_HOST_NOT_FOUND         =  0xAF;
+
     static final int CMD_ASK_DEVICE_KIND        =  0xC0;
     static final int CMD_MSG_ANALOG_DATA        =  0xC1;
     static final int CMD_MSG_STATISTIC          =  0xCA;
@@ -152,9 +151,14 @@ public class MainActivity extends AppCompatActivity {
     static final int NO_CONFIRM                 =  0xFF;
 
     public static final int NUMBER_OF_REQUEST   = 23401;
+
     static final int MSG_END_CONNECTING         =  0x01;
+    static final int MSG_END_CONNECTTASK        =  0x02;
     static final int MSG_GOT_MAP_ADDR           =  0x03;
-    static final int BR_MSG_END_SETTING         =  0x02;
+    static final int MSG_GOT_PEER_ADDR          =  0x04;
+    static final int MSG_NO_HOST                =  0x05;
+    static final int MSG_NO_SIGNAL_SERVER       =  0x06;
+    static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
 
 
     ViewPager viewPager;
@@ -176,26 +180,31 @@ public class MainActivity extends AppCompatActivity {
     private NetworkInfo netInfo;
     private WifiManager wifiMgr;
     private Boolean isShowDialog = false;
-    private Boolean netRecieverRegistered;
-    private Boolean udpRecieverRegistered;
+    private Boolean netRecieverRegistered = false;
+    private Boolean udpRecieverRegistered = false;
 //    private Boolean msgRecieverRegistered;
-    private Boolean workWiFi;
-    private Boolean remote;
+    private Boolean workWiFi = false;
+    private Boolean remote = false;
+    private Boolean staticIP = false;
     private String remoteIP = "0.0.0.0";
-    private String mappedAddr = "MapAddr";
+    private int remPort = 0;
+    private String mappedIP = "0.0.0.0";
     private int mappedPort = 0;
-//    public String deviceIP;
+    private String signalIP = "0.0.0.0";
+    private String peerIP = "0.0.0.0";
+    private int peerPort = 0;
+//    private int signalPort = 16133;
+    public int defaultPort = 55555;
     public String devLocalIP;
     public boolean connected;
     private int pass;
+    private int serial = 0;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
     public int lastCommand = 0;
     public int changedState = 0;
-//    private String titleStr = "";
     private String theme;
     public String storageDir;
-    public String defStunIP = "216.93.246.18";
     private int timeout;
     public boolean cnf;
 
@@ -210,10 +219,7 @@ public class MainActivity extends AppCompatActivity {
         String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
         copyFile( storageDir+"/Preferences/preferences.xml", fPref);
 
-
-
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
-
 
         theme = prefs.getString("key_theme", "");
         switch (Objects.requireNonNull(theme)){
@@ -225,26 +231,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-        if (savedInstanceState==null){
-//            Log.i(TAG, " First onCreate" );
-//            connected = false;
-            netRecieverRegistered = false;
-            udpRecieverRegistered = false;
-//            msgRecieverRegistered = false;
-            workWiFi = false;
-//            deviceIP = stringIP(getBroadcastWiFiIP());
-            devLocalIP = "";
-            remote=false;
-        }
         super.onCreate(savedInstanceState);
-        remoteIP = prefs.getString("key_remIP", "0.0.0.0");
-        String stPort = prefs.getString("key_port", "0");
-        remPort = Integer.parseInt(Objects.requireNonNull(stPort));
-        pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
-        workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
-
-        initiateStorage();
-
         setContentView(R.layout.activity_main);
 
         pBar = findViewById(R.id.progressBar);
@@ -262,6 +249,8 @@ public class MainActivity extends AppCompatActivity {
         sensCountText.setText("0");
         fText = findViewById(R.id.f_text);
 
+        initiateStorage();
+
         updateConfig();
 
         viewPager = findViewById(R.id.viewPager);
@@ -272,6 +261,8 @@ public class MainActivity extends AppCompatActivity {
         tabLayout.setupWithViewPager(viewPager, true);
 
         wifiMgr = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+
+        readSetting();
 
         sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
 
@@ -295,6 +286,20 @@ public class MainActivity extends AppCompatActivity {
         timer = new Timer();
 
          */
+
+    }
+
+    private void readSetting(){
+        prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        remoteIP = prefs.getString("key_remIP", "0.0.0.0");
+        signalIP = prefs.getString("key_signalIP", "0.0.0.0");
+        staticIP = prefs.getBoolean("id_cb_StaticIP", false);
+        remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
+        serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_serial", "0")));
+        pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
+        workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
+        timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
+
 
     }
 
@@ -440,12 +445,6 @@ public class MainActivity extends AppCompatActivity {
             udpRecieverRegistered=false;
         }
 
-        String fPrefFile = this.getPackageName()+ "_preferences.xml";
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-            fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
-        }
-        String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
-        copyFile(fPref, storageDir+"/Preferences/preferences.xml");
 
 //        timer.cancel();
     }
@@ -592,10 +591,14 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         Log.i(TAG, " onActivityResult " + requestCode+" "+resultCode);
         if (requestCode==RK_SETTING){
-            remoteIP = prefs.getString("key_remIP", "0.0.0.0");
-            String stPort = prefs.getString("key_port", "0");
-            remPort = Integer.parseInt(Objects.requireNonNull(stPort));
-            pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
+            String fPrefFile = this.getPackageName()+ "_preferences.xml";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+                fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
+            }
+            String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
+            copyFile(fPref, storageDir+"/Preferences/preferences.xml");
+            readSetting();
+
             if (sUDP!=null){
                 sUDP.setPass(pass);
 //                sUDP.setDestPort(remPort);
@@ -713,16 +716,33 @@ public class MainActivity extends AppCompatActivity {
                 }
 
             }else{
-                int defStunPort = 3478;
-                getMappedAddress(defStunIP, defStunPort);
+                if (!staticIP){
+                    getMappedAddress();
+                }
                 switch (netInfo.getType()){
                     case ConnectivityManager.TYPE_WIFI:
                         setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_WiFi));
                         workWiFi=true;
-                        connectingToHost(stringIP(getBroadcastWiFiIP()), defaultPort);
+                        remote=false;
+                        sUDP.setDestIP(stringIP(getBroadcastWiFiIP()));
+                        sUDP.setDestPort(defaultPort);
+                        connectingToHost();
                         break;
                     case ConnectivityManager.TYPE_MOBILE:
                         setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_Mobile));
+                        remote=true;
+                        if (staticIP){
+                            if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
+                                Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
+                            }else{
+                                sUDP.setDestIP(remoteIP);
+                                sUDP.setDestPort(remPort);
+                                connectingToHost();
+                            }
+                        }else{
+                            connectingThrouSignal();
+
+                        }
                         break;
                 }
 
@@ -879,85 +899,60 @@ public class MainActivity extends AppCompatActivity {
         return connected;
     }
 
-    private void connectingToHost(String ip, int port ){
+    private void connectingToHost(){
 
         statusText.setText(getString(R.string.connecting));
         connected = false;
-
-        sUDP.setDestIP(ip);
-        sUDP.setDestPort(port);
 
         pBar.setVisibility(View.VISIBLE);
 
         new  Thread(new Runnable() {
             @Override
             public void run() {
-//                sendUI_Msg("", "", "", "connecting...");
-
-//                String devLocalIP="";
-                Log.i(TAG, " Create connecting thread: "+currentThread() );
+                Log.i(TAG, " Create connecting thread: "+currentThread() + ", remote = " +remote );
 
                 if (!isIpFound()){
                     isIpFound();
                 }
 
-                if (connected){
-                    byte[] outBuf = {ASK_COUNT_DEVS};
-                    if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
-                        int devsCount = sUDP.getWBbyte(1);
-                        int[] devs = new int[devsCount];
-                        for (int i = 0; i <devsCount ; i++) {
-                            devs[i]=sUDP.getWBbyte(2+i);
-                        }
-                        Log.i(TAG, " get List Devices: "+ devsCount);
-                        for (int i = 0; i <devsCount; i++) {
-                            byte[] bufCount = {SET_W_COMMAND, (byte) devs[i], 2, (byte) CMD_ASK_TYPE};
-                            askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
-                        }
-                    }
-
-                    outBuf[0] = ASK_COUNT_SENSORS;
-                    if (askUDP(outBuf, MSG_LIST_SENSORS, 0)){
-                        int sensCount = sUDP.getWBbyte(1);
-                        int[] sens = new int[sensCount];
-                        for (int i = 0; i <sensCount ; i++) {
-                            sens[i]=sUDP.getWBbyte(2+i);
-                        }
-                        Log.i(TAG, " get List Sensors: "+ sensCount);
-                        for (int i = 0; i <sensCount; i++) {
-                            byte[] bufCount = {SET_W_COMMAND, (byte) sens[i], 2, (byte) CMD_ASK_DEVICE_KIND};
-                            if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)){
-                                int devN = sUDP.getWBbyte(1);
-                                int sInd = getSnsIndex(devN);
-                                if (sInd<0){
-                                    sInd=sensors.size();
-                                    sensors.add(new SensorDevice(devN, sUDP.getWBbyte(4)));
-//                                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
-                                }
-
-                                byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
-                                if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)){
-                                    int count = sUDP.getWBbyte(2)-3;
-                                    byte[] buf = sUDP.getWBpart(5, count+5);
-                                    sensors.get(sInd).setData(buf);
-                                    Log.i(TAG, "MSG_SENSOR_STATE in Main");
-                                }
-                            }
-                        }
-                    }
-                }
-                Log.i(TAG, "Connected is "+ connected+ ", Send MSG_END_CONNECTING");
+                Log.i(TAG, "Send MSG_END_CONNECTING");
                 Bundle bundle = new Bundle();
                 Message msg = handler.obtainMessage();
                 bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
-//                bundle.putBoolean("Remote", remote);
                 msg.setData(bundle);
                 handler.sendMessage(msg);
 
             }
         }).start();
+    }
 
+    private void connectingThrouSignal(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int att = 0;
+                while ((peerIP.equals("0.0.0.0"))&&(att<2000)){
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    att++;
+                }
+                Log.i(TAG, "connectingThrouSignal, time = "+att+"mS");
+                if (att<2000){
+                    Log.i(TAG, "connectingThrouSignal, connect to "+peerIP+" : "+peerPort);
+                    sUDP.setDestIP(peerIP);
+                    sUDP.setDestPort(peerPort);
+                    remote = true;
+                    if (!isIpFound()){
+                        isIpFound();
+                    }
 
+                }
+
+            }
+        }).start();
     }
 
     @SuppressLint("HandlerLeak")
@@ -966,38 +961,75 @@ public class MainActivity extends AppCompatActivity {
         public void handleMessage(Message msg) {
             Bundle bundle = msg.getData();
            int state = bundle.getInt("ThreadEnd", 0);
+           String st;
            switch (state){
                case MSG_END_CONNECTING:
                    Log.i(TAG, " get MSG_END_CONNECTING");
                    pBar.setVisibility(View.INVISIBLE);
                    if (connected){
-//                       remote=bundle.getBoolean("Remote");
                        String link;
                        if (remote){
-                           link = mappedAddr + " : " + mappedPort + " ("+ getLocalIP() + ") <--> " + remoteIP +" ("+ devLocalIP + ")";
+                           link = mappedIP + " : " + mappedPort + " ("+ getLocalIP() + ") <--> " + remoteIP +" ("+ devLocalIP + ")";
 
                        }else{
                            link = getLocalIP() + " <--> " + devLocalIP;
                        }
                        fText.setText(link);
-                       devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
-                       sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
-                       statusText.setText(R.string.connected);
                        taskAfterConnect();
                    }else{
                        statusText.setText(R.string.no_connect);
                        fText.setText("");
+                       if (remote){
+                           if (staticIP){
+                               st = getString(R.string.no_answer) + " " + remoteIP + " : "+remPort;
+                           }else{
+                               st = getString(R.string.no_answer) + " " + peerIP + " : "+peerPort;
+                           }
+                           Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
+                       }else{
+                           if (staticIP){
+                               if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
+                                   Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
+                               }else{
+                                   remote = true;
+                                   sUDP.setDestIP(remoteIP);
+                                   sUDP.setDestPort(remPort);
+                                   connectingToHost();
+                               }
+                           }
+                       }
                    }
                    break;
+               case MSG_END_CONNECTTASK:
+                   devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
+                   sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
+                   statusText.setText(R.string.connected);
+                   break;
                case MSG_GOT_MAP_ADDR:
-                   String st = mappedAddr +" : " + mappedPort;
+                   st = mappedIP +" : " + mappedPort;
                    localIPtext.setText(st);
+                   if (signalIP.equals("0.0.0.0")){
+                       Toast.makeText(getApplicationContext(), getText(R.string.not_set_signal_IP), Toast.LENGTH_SHORT).show();
+                   }else{
+                       if ((!mappedIP.equals("0.0.0.0"))&&(mappedPort!=0)){
+                           askSignal();
+                       }
+                   }
+                   break;
+               case MSG_NO_SIGNAL_ANSWER:
+                   Toast.makeText(getApplicationContext(), getText(R.string.no_signal_IP) +" "+ signalIP, Toast.LENGTH_LONG).show();
+                   break;
+               case MSG_NO_HOST:
+                   st = getString(R.string.device) + " " + serial + " " + getText(R.string.no_host_at_signal_IP);
+                   Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
+                   break;
+               case MSG_GOT_PEER_ADDR:
                    break;
            }
         }
     };
 
-    private boolean isStunResponce(String ip, int port){
+    private int getStunResponce(String ip, int port){
         byte[] buf = new byte[20];
         buf[1]=1;
         buf[18]= (byte) 0xFF;
@@ -1013,38 +1045,92 @@ public class MainActivity extends AppCompatActivity {
             }
             att++;
         }
-        Log.i(TAG, "Stun Responce at " + att + "mS");
-        return att<200;
-
+        return att;
     }
 
-    private void getMappedAddress(final String stunIP, final int stunPort){
+    private void getMappedAddress(){
 
         Log.i(TAG, "Send Stun Request");
-        mappedAddr="0.0.0.0";
+        mappedIP ="0.0.0.0";
         mappedPort=0;
         new Thread(new Runnable() {
             @Override
             public void run() {
 
                 int ind = 0;
-                while ((ind<8)&&(!isStunResponce(stunIP, stunPort))){
+                int att = 200;
+                while ((ind<8)&&(att>=200)){
+                    att=getStunResponce(defStunIP, defStunPort);
                     ind++;
                 }
                 if (ind<8){
                     byte[] inBuf = sUDP.getABpart(26, 32);                          // from 26 to 31
-                    mappedAddr = (inBuf[2]&0xFF)+"."+(inBuf[3]&0xFF)+"."+(inBuf[4]&0xFF)+"."+(inBuf[5]&0xFF);
+                    mappedIP = (inBuf[2]&0xFF)+"."+(inBuf[3]&0xFF)+"."+(inBuf[4]&0xFF)+"."+(inBuf[5]&0xFF);
                     mappedPort = ((inBuf[0]<<8)&0xFF00)+(inBuf[1]&0xFF);
                     Bundle bundle = new Bundle();
                     Message msg = handler.obtainMessage();
                     bundle.putInt("ThreadEnd", MSG_GOT_MAP_ADDR);
                     msg.setData(bundle);
                     handler.sendMessage(msg);
+                    Log.i(TAG, "Stun Responce: " + att + "mS in "+ind+" attempt");
+                }else{
+                    Log.i(TAG, "No STUN responce");
                 }
 
             }
         }).start();
 
+    }
+
+    private void askSignal(){
+        if (serial!=0){
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    byte[] buf = {(byte) PLACE_GUEST_DATA, (byte) ((serial >> 24)& 0xFF), (byte) ((serial >> 16)& 0xFF), (byte) ((serial >> 8)& 0xFF),
+                            (byte) (serial & 0xFF), 0, 0, 0, 0, (byte) ((mappedPort >> 8)& 0xFF), (byte) (mappedPort & 0xFF)};
+
+
+                    try {
+                        Bundle bundle = new Bundle();
+                        Message msg = handler.obtainMessage();
+                        byte[] ip = InetAddress.getByName(mappedIP).getAddress();
+                        System.arraycopy(ip, 0, buf, 5, 4);
+                        if (askSigUDP(buf, signalIP)){
+                            byte[] sbuf = sUDP.getABpart(0, 30);
+                            int ps = (((sbuf[0]&0xFF) << 16) +((sbuf[1]&0xFF)<<8)+(sbuf[2]&0xFF));
+                            if (ps == DEF_PASS){
+                                switch (sbuf[7]){
+                                    case (byte)MSG_GUEST_DATA_PLACED:
+                                        peerIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", sbuf[12]&0xFF, sbuf[13]&0xFF, sbuf[14]&0xFF, sbuf[15]&0xFF);
+                                        peerPort = (sbuf[16]&0xFF)*0x100+(sbuf[17]&0xFF);
+                                        bundle.putInt("ThreadEnd", MSG_GOT_PEER_ADDR);
+                                        Log.i(TAG, "Signal answer: "+peerIP+" : "+peerPort);
+                                        break;
+                                    case (byte)MSG_HOST_NOT_FOUND:
+                                        Log.i(TAG, "Signal answer: Host not found");
+                                        bundle.putInt("ThreadEnd", MSG_NO_HOST);
+                                        break;
+
+                                }
+                            }
+                        }else{
+                            bundle.putInt("ThreadEnd", MSG_NO_SIGNAL_ANSWER);
+                            Log.i(TAG, "Signal server no answer");
+
+                        }
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);
+                    } catch (UnknownHostException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+            }).start();
+
+        }else{
+            Toast.makeText(this, getText(R.string.no_serial), Toast.LENGTH_SHORT).show();
+        }
     }
 
 
@@ -1053,6 +1139,51 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
+
+                byte[] outBuf = {ASK_COUNT_DEVS};
+                if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
+                    int devsCount = sUDP.getWBbyte(1);
+                    int[] devs = new int[devsCount];
+                    for (int i = 0; i <devsCount ; i++) {
+                        devs[i]=sUDP.getWBbyte(2+i);
+                    }
+                    Log.i(TAG, " get List Devices: "+ devsCount);
+                    for (int i = 0; i <devsCount; i++) {
+                        byte[] bufCount = {SET_W_COMMAND, (byte) devs[i], 2, (byte) CMD_ASK_TYPE};
+                        askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
+                    }
+                }
+
+                outBuf[0] = ASK_COUNT_SENSORS;
+                if (askUDP(outBuf, MSG_LIST_SENSORS, 0)){
+                    int sensCount = sUDP.getWBbyte(1);
+                    int[] sens = new int[sensCount];
+                    for (int i = 0; i <sensCount ; i++) {
+                        sens[i]=sUDP.getWBbyte(2+i);
+                    }
+                    Log.i(TAG, " get List Sensors: "+ sensCount);
+                    for (int i = 0; i <sensCount; i++) {
+                        byte[] bufCount = {SET_W_COMMAND, (byte) sens[i], 2, (byte) CMD_ASK_DEVICE_KIND};
+                        if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)){
+                            int devN = sUDP.getWBbyte(1);
+                            int sInd = getSnsIndex(devN);
+                            if (sInd<0){
+                                sInd=sensors.size();
+                                sensors.add(new SensorDevice(devN, sUDP.getWBbyte(4)));
+//                                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
+                            }
+
+                            byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
+                            if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)){
+                                int count = sUDP.getWBbyte(2)-3;
+                                byte[] buf = sUDP.getWBpart(5, count+5);
+                                sensors.get(sInd).setData(buf);
+                                Log.i(TAG, "MSG_SENSOR_STATE in Main");
+                            }
+                        }
+                    }
+                }
+
                 Calendar cl = Calendar.getInstance();
                 byte[] buffTime = new  byte[9];
                 buffTime[0] = CMD_SET_TIME;
@@ -1072,6 +1203,12 @@ public class MainActivity extends AppCompatActivity {
                     byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
                     askUDP(bufState, MSG_RE_SENT_W, MSG_STATE);
                 }
+                Log.i(TAG, "Send MSG_END_CONNECTTASK, Exec = " + execDevs.size() + ", Sns = " + sensors.size());
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
+                bundle.putInt("ThreadEnd", MSG_END_CONNECTTASK);
+                msg.setData(bundle);
+                handler.sendMessage(msg);
 
             }
         }).start();
@@ -1222,21 +1359,26 @@ public class MainActivity extends AppCompatActivity {
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (netInfo!=null){
-            int curID = sUDP.getCurrentID();
-            curID++;
-            sUDP.setCurrentID((byte) curID);
-            int att;
-//        drawRcvStatus(0, false);
+            sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
                 if (hostCmd==MSG_RCV_OK){
-                    att=i;
+                    sUDP.send(inBuf, (byte) i, hostCmd, devCmd);
                 }else {
-                    att=NO_CONFIRM;
+                    sUDP.send(inBuf, (byte) NO_CONFIRM, hostCmd, devCmd);
                 }
-                sUDP.send(inBuf, inBuf.length, (byte) att, hostCmd, devCmd);
-                if (waitForConfirm(Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500"))))){
-                    Log.i(TAG, " askUDP : confirm "+Integer.toHexString(hostCmd)+ " :" + i);
+                int tm = 0;
+                while ((!sUDP.getConfirm())&(tm<timeout)){
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    tm++;
+                }
+                if (tm<timeout){
+                    Log.i(TAG, "askUDP " +byteArrayToHex(inBuf, inBuf.length)+ " for ("+Integer.toHexString(sUDP.hostCmd)+", "+Integer.toHexString(sUDP.devCmd)+"), time = "+tm+"mS"+", att = "+i);
                     return true;
+
                 }
             }
             Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
@@ -1244,6 +1386,33 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    boolean askSigUDP(byte[] inBuf, String dstIP) {
+        if (netInfo!=null){
+            sUDP.incCurrentID();
+            for (int i = 1; i <4 ; i++) {
+                sUDP.sendToSignal(inBuf, (byte) NO_CONFIRM, dstIP);
+                int tm = 0;
+
+                while ((!sUDP.getPacketOk())&(tm<timeout)){
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(1);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    tm++;
+                }
+                if (tm<timeout){
+                    Log.i(TAG, " waitForSigUDP, time = " + tm + "mS, attempt " + i);
+                    return true;
+
+                }
+            }
+            Log.i(TAG, "No answer from signal server " + dstIP);
+        }
+        return false;
+    }
+
+   /*
     public boolean waitForConfirm(int timeout){
         int att = 0;
         while ((!sUDP.getConfirm())&(att<timeout)){
@@ -1262,7 +1431,7 @@ public class MainActivity extends AppCompatActivity {
         if (!devLocalIP.equals("")){
             byte[] outBuf = {ASK_IP};
             for (int i = 1; i <4 ; i++) {
-                sUDP.send(outBuf, outBuf.length, (byte) NO_CONFIRM, MSG_ANSW_IP, 0);
+                sUDP.send(outBuf, (byte) NO_CONFIRM, MSG_ANSW_IP, 0);
                 if (waitForConfirm(50)){
                     Log.i(TAG, " connectIsValid : confirm "+Integer.toHexString(MSG_ANSW_IP)+ " :" + i);
                     return true;
@@ -1271,6 +1440,8 @@ public class MainActivity extends AppCompatActivity {
         }
         return false;
     }
+
+    */
 
 
 
@@ -1283,41 +1454,29 @@ public class MainActivity extends AppCompatActivity {
 //            int attempt = intent.getIntExtra("Attempt", 0);
             byte[] inData = intent.getByteArrayExtra("Buffer");
             int len = inData.length;
-            if (len>0){
+            if (len>7){
 
+                byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
+                sUDP.lastID= (byte) (inData[3]&0xFF);
+                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+                if (recvBuff[0]!=(byte)MSG_RCV_OK){
+                    parceFromHub(recvBuff);
+                }
 
+                /*
                 int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));    // first 3 bytes - pass
                 if (ps==pass){
-                    if ((inData[3]&0xFF)!=sUDP.lastID){                                              // next byte - packet ID, next - attempt, next 2 - reserved
-                        byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
-                        sUDP.lastID= (byte) (inData[3]&0xFF);
-//                                recieved = true;
-                        Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
-
-                        /*
-                        String st;
-                        if (recvBuff.length>3){
-                            st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd+", recvBuff[3]="+(recvBuff[3]&0xFF)+", devCmd="+devCmd;
-                        }else{
-                            st=" In: recvBuff[0]="+(recvBuff[0]&0xFF)+", hostCmd="+hostCmd;
-                        }
-                        Log.i(TAG, st +", "+ hashCode());
-
-                         */
+                    if ((inData[3]&0xFF)!=sUDP.getLastID()){                                              // next byte - packet ID, next - attempt, next 2 - reserved
 
 
-                        if (recvBuff[0]!=(byte)MSG_RCV_OK){
-                            parceFromHub(recvBuff);
-                        }
                     }
                     else{
-                        Log.i(TAG, " Receive repeat:  "+ inData[4]);
+                        Log.i(TAG, " Receive repeat:  "+ byteArrayToHex(inData, len) );
                     }
-                }else{
 
-                    Log.i(TAG, " Packet received, but pass mismatch: got "+ Integer.toHexString(ps).toUpperCase() +
-                            ", need " + Integer.toHexString(pass).toUpperCase());
                 }
+
+                 */
 
 
 

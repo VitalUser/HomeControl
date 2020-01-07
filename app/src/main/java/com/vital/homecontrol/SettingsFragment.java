@@ -36,8 +36,12 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference port = (EditTextPreference) findPreference("key_port");
         port.setSummary(port.getText());
 
+        EditTextPreference serial = (EditTextPreference) findPreference("key_serial");
+        serial.setSummary(serial.getText());
+
         SwitchPreference cb_static = (SwitchPreference)findPreference("id_cb_StaticIP");
         signaliPpicker.setEnabled(!cb_static.isChecked());
+        serial.setEnabled(!cb_static.isChecked());
 
         EditTextPreference timeout = (EditTextPreference) findPreference("key_timeout");
         timeout.setSummary(timeout.getText());
@@ -97,6 +101,7 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference remport = (EditTextPreference) findPreference("key_port");
         IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
         IPpickerPreference signaliPpicker = (IPpickerPreference) findPreference("key_signalIP");
+        EditTextPreference serial = (EditTextPreference) findPreference("key_serial");
         switch (s){
             case "key_udppass":
                 EditTextPreference pass = (EditTextPreference) findPreference(s);
@@ -114,6 +119,10 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
             case "id_cb_StaticIP":
                 SwitchPreference cb_static = (SwitchPreference)findPreference(s);
                 signaliPpicker.setEnabled(!cb_static.isChecked());
+                serial.setEnabled(!cb_static.isChecked());
+                break;
+            case "key_serial":
+                serial.setSummary(serial.getText());
                 break;
 
             case "key_theme":
