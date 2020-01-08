@@ -10,6 +10,7 @@
              android:key="key_udppass"
              android:title="@string/pass"
              android:inputType="number"
+             android:maxLength="6"
              android:selectAllOnFocus="true"
              android:defaultValue="0"/>
 

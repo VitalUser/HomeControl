@@ -19,6 +19,7 @@ class UDPserver {
 //    private static final String UDP_PACKET_RCV = "UDP_PacketReceived";
 
     private static final int DEF_PASS        =  0xA8A929;
+    private static final int SIGN_PASS       =  0xAFA55A;
     private static final int SIGN_PORT       =  16133;
     private static final int MSG_RCV_OK      =  0xA5;
     private static final int NO_CONFIRM      =  0xFF;

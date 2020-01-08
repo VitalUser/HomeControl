@@ -80,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
     static final int RK_SETTING = 1001;
     static final int RK_STUN = 1002;
     static final int DEF_PASS        =  0xA8A929;
+    static final int SIGN_PASS       =  0xAFA55A;
     static final int localPort = 55550;
     static final String defStunIP = "216.93.246.18";
     static final int defStunPort = 3478;
@@ -927,9 +928,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void connectingThrouSignal(){
+        statusText.setText(getString(R.string.connecting));
+        connected = false;
+        pBar.setVisibility(View.VISIBLE);
+        Log.i(TAG, "Start connectingThrouSignal");
         new Thread(new Runnable() {
             @Override
             public void run() {
+//                bundle.putInt("ThreadEnd", MSG_NO_SIGNAL_ANSWER);
                 int att = 0;
                 while ((peerIP.equals("0.0.0.0"))&&(att<2000)){
                     try {
@@ -948,6 +954,11 @@ public class MainActivity extends AppCompatActivity {
                     if (!isIpFound()){
                         isIpFound();
                     }
+                    Bundle bundle = new Bundle();
+                    Message msg = handler.obtainMessage();
+                    bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
+                    msg.setData(bundle);
+                    handler.sendMessage(msg);
 
                 }
 
@@ -965,7 +976,7 @@ public class MainActivity extends AppCompatActivity {
            switch (state){
                case MSG_END_CONNECTING:
                    Log.i(TAG, " get MSG_END_CONNECTING");
-                   pBar.setVisibility(View.INVISIBLE);
+//                   pBar.setVisibility(View.INVISIBLE);
                    if (connected){
                        String link;
                        if (remote){
@@ -977,19 +988,23 @@ public class MainActivity extends AppCompatActivity {
                        fText.setText(link);
                        taskAfterConnect();
                    }else{
-                       statusText.setText(R.string.no_connect);
-                       fText.setText("");
                        if (remote){
                            if (staticIP){
                                st = getString(R.string.no_answer) + " " + remoteIP + " : "+remPort;
                            }else{
                                st = getString(R.string.no_answer) + " " + peerIP + " : "+peerPort;
                            }
+                           statusText.setText(R.string.no_connect);
+                           fText.setText("");
+                           pBar.setVisibility(View.INVISIBLE);
                            Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
                        }else{
                            if (staticIP){
                                if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
                                    Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
+                                   statusText.setText(R.string.no_connect);
+                                   fText.setText("");
+                                   pBar.setVisibility(View.INVISIBLE);
                                }else{
                                    remote = true;
                                    sUDP.setDestIP(remoteIP);
@@ -1001,6 +1016,7 @@ public class MainActivity extends AppCompatActivity {
                    }
                    break;
                case MSG_END_CONNECTTASK:
+                   pBar.setVisibility(View.INVISIBLE);
                    devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
                    statusText.setText(R.string.connected);
@@ -1017,13 +1033,21 @@ public class MainActivity extends AppCompatActivity {
                    }
                    break;
                case MSG_NO_SIGNAL_ANSWER:
+                   statusText.setText(R.string.no_connect);
+                   fText.setText("");
+                   pBar.setVisibility(View.INVISIBLE);
                    Toast.makeText(getApplicationContext(), getText(R.string.no_signal_IP) +" "+ signalIP, Toast.LENGTH_LONG).show();
                    break;
                case MSG_NO_HOST:
+                   statusText.setText(R.string.no_connect);
+                   fText.setText("");
+                   pBar.setVisibility(View.INVISIBLE);
                    st = getString(R.string.device) + " " + serial + " " + getText(R.string.no_host_at_signal_IP);
                    Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
                    break;
                case MSG_GOT_PEER_ADDR:
+//                   pBar.setVisibility(View.INVISIBLE);
+//                   Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
                    break;
            }
         }
