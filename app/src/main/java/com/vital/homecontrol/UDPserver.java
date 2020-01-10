@@ -25,9 +25,12 @@ class UDPserver {
     private static final int NO_CONFIRM      =  0xFF;
 
     private static final int localPort = 55550;
+    private static final String defStunIP = "216.93.246.18";
+    private static final int defStunPort = 3478;
 
     private Context context;
     private String destIP;
+    private String signalIP;
     private int destPort;
     private int pass;
     byte lastID;
@@ -35,23 +38,30 @@ class UDPserver {
     int hostCmd;
     int devCmd;
     private boolean confirmOk;
-    private boolean packetUDPok;
+//    private boolean packetUDPok;
+    private boolean signUDPok;
+    private boolean stunUDPok;
 //    private boolean listen;
 
     private byte[] workBuff;
-    private byte[] allBuff;
+    private byte[] signBuff;
+    private byte[] stunBuff;
 
     UDPserver(Context context, int pass){
         this.context = context;
         this.destIP = "0.0.0.0";
+        this.signalIP = "0.0.0.0";
         this.destPort = 0;
         this.workBuff = new byte[255];
-        this.allBuff = new byte[511];
+        this.signBuff = new byte[255];
+        this.stunBuff = new byte[511];
         this.pass = pass;
         this.lastID = 0;
         this.currentID = 1;
         this.confirmOk = false;
-        this.packetUDPok = false;
+//        this.packetUDPok = false;
+        this.signUDPok = false;
+        this.stunUDPok = false;
         this.hostCmd = 0;
         this.devCmd = 0;
         Log.i(TAG, " New UDP-server listen ");
@@ -64,8 +74,8 @@ class UDPserver {
             @Override
             public void run() {
                 try {
-                    confirmOk = false;
-                    packetUDPok = false;
+ //                   confirmOk = false;
+ //                   packetUDPok = false;
                     DatagramSocket sUDP = new DatagramSocket(null);
                     sUDP.setReuseAddress(true);
                     sUDP.bind(new InetSocketAddress(localPort));
@@ -75,7 +85,7 @@ class UDPserver {
                         sUDP.receive(inUDP);                                                // next byte - packet ID, next - attempt, next 2 - reserved
                         int len = inUDP.getLength();                                        // total - 7
                         if (len>7){
-                            int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
+                            int ps = (((inData[0]&0xFF) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
                             if (ps == pass){
                                 if ((inData[4]&0xFF)!=NO_CONFIRM){
                                     currentID++;
@@ -105,11 +115,32 @@ class UDPserver {
 
                                 }
                                 else{
-                                    Log.i(TAG, " Receive repeat:  "+ inData[4]);
+                                    Log.i(TAG, " Receive repeat work:  "+ inData[4]);
                                 }
-                            }else{
-                                allBuff = Arrays.copyOf(inData, len);
-                                packetUDPok = true;
+                            }
+                            if (ps == SIGN_PASS){
+                                if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                    currentID++;
+                                    byte[] buf = {(byte) MSG_RCV_OK};
+                                    Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                    sendToSignal(buf, (byte) NO_CONFIRM);
+                                }
+                                if ((inData[3]&0xFF)!=lastID){
+                                    signBuff = Arrays.copyOfRange(inData,7,len);
+                                    lastID= (byte) (inData[3]&0xFF);
+                                    Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+
+                                    signUDPok = true;
+
+
+                                }
+                                else{
+                                    Log.i(TAG, " Receive repeat signal:  "+ inData[4]);
+                                }
+                            }
+                            if ((ps & 0xFFFF00) == 0x010100){                   // STUN responce
+                                stunBuff = Arrays.copyOf(inData, len);
+                                stunUDPok = true;
                                 Log.i(TAG, "Alt In:  "+ byteArrayToHex(inData, len));
 
                             }
@@ -134,7 +165,7 @@ class UDPserver {
 
                 byte[] outData = new byte[buffer.length+7];
                 System.arraycopy(buffer, 0, outData, 7, buffer.length);
-                outData[0] = (byte) ((pass/0x10000) | 0x80);
+                outData[0] = (byte) (pass/0x10000);
                 outData[1] = (byte) (pass/0x100);
                 outData[2] = (byte) (pass & 0xFF);
                 outData[3] = (byte) (currentID & 0xFF);
@@ -155,26 +186,26 @@ class UDPserver {
 
     }
 
-    void sendToSignal(final byte[] buffer, final byte attempt, final String dstIP){
-        packetUDPok=false;
+    void sendToSignal(final byte[] buffer, final byte attempt){
+        signUDPok=false;
         new Thread(new Runnable() {
             @Override
             public void run() {
 
                 byte[] outData = new byte[buffer.length+7];
                 System.arraycopy(buffer, 0, outData, 7, buffer.length);
-                outData[0] = (byte) ((DEF_PASS/0x10000) | 0x80);
-                outData[1] = (byte) (DEF_PASS/0x100);
-                outData[2] = (byte) (DEF_PASS & 0xFF);
+                outData[0] = (byte) (SIGN_PASS/0x10000);
+                outData[1] = (byte) (SIGN_PASS/0x100);
+                outData[2] = (byte) (SIGN_PASS & 0xFF);
                 outData[3] = (byte) (currentID & 0xFF);
                 outData[4] = attempt;
                 outData[5] = 0;
                 outData[6] = 0;
-                Log.i(TAG, " Out: "+  dstIP + " : "+SIGN_PORT+" - "+byteArrayToHex(outData, outData.length));
+                Log.i(TAG, " Out: "+  signalIP + " : "+SIGN_PORT+" - "+byteArrayToHex(outData, outData.length));
                 try (DatagramSocket socketUDP = new DatagramSocket(null)) {
                     socketUDP.setReuseAddress(true);
                     socketUDP.bind(new InetSocketAddress(localPort));
-                    DatagramPacket outUDP = new DatagramPacket(outData, outData.length, InetAddress.getByName(dstIP), SIGN_PORT);
+                    DatagramPacket outUDP = new DatagramPacket(outData, outData.length, InetAddress.getByName(signalIP), SIGN_PORT);
                     socketUDP.send(outUDP);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -184,18 +215,18 @@ class UDPserver {
 
     }
 
-    void sendUdpPacket(final byte[] buffer, final String ip, final int port){
-        packetUDPok=false;
+    void sendStunPacket(final byte[] buffer){
+        stunUDPok=false;
         new Thread(new Runnable() {
             @Override
             public void run() {
 
-                Log.i(TAG, " Out: "+  ip + " : "+port);
+                Log.i(TAG, " Out: "+  defStunIP + " : "+defStunPort);
                 Log.i(TAG, " Out: "+  byteArrayToHex(buffer, buffer.length));
                 try (DatagramSocket socketUDP = new DatagramSocket(null)) {
                     socketUDP.setReuseAddress(true);
                     socketUDP.bind(new InetSocketAddress(localPort));
-                    DatagramPacket outUDP = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(ip), port);
+                    DatagramPacket outUDP = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(defStunIP), defStunPort);
                     socketUDP.send(outUDP);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -226,27 +257,31 @@ class UDPserver {
         return this.workBuff;
     }
 
-    int getABbyte(int index){
-        if (index<this.allBuff.length){
-            return this.allBuff[index]&0xFF;
+    int getStunByte(int index){
+        if (index<this.stunBuff.length){
+            return this.stunBuff[index]&0xFF;
         }else{
             return 0;
         }
     }
 
-    byte[] getABpart(int from, int to){
+    byte[] getStunPart(int from, int to){
         if (from<=to){
-            if (to<this.allBuff.length){
-                return Arrays.copyOfRange(this.allBuff, from, to);
+            if (to<this.stunBuff.length){
+                return Arrays.copyOfRange(this.stunBuff, from, to);
             }else{
-                return Arrays.copyOfRange(this.allBuff, 0, this.allBuff.length);
+                return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
             }
         }
-        return Arrays.copyOfRange(this.allBuff, 0, this.allBuff.length);
+        return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
     }
 
-    byte[] getAB(){
-        return this.allBuff;
+    byte[] getStunBuffer(){
+        return this.stunBuff;
+    }
+
+    byte[] getSignalBuffer(){
+        return this.signBuff;
     }
 
     boolean getConfirm(){
@@ -257,8 +292,12 @@ class UDPserver {
 
 
 
-    boolean getPacketOk(){
-        return this.packetUDPok;
+    boolean waitForSignalUDP(){
+        return !this.signUDPok;
+    }
+
+    boolean waitForStunUDP(){
+        return !this.stunUDPok;
     }
 
 
@@ -278,6 +317,10 @@ class UDPserver {
         Log.i(TAG, " UDPserver.setDestIP: "+ destIP);
     }
 
+    void setSignalIP(String ip){
+        this.signalIP=ip;
+    }
+
     void setPass(int pass){
         this.pass=pass;
     }
@@ -286,9 +329,6 @@ class UDPserver {
         this.destPort=port;
     }
 
-    int getLastID(){
-        return this.lastID;
-    }
 
 
     private String byteArrayToHex(byte[] b, int len){

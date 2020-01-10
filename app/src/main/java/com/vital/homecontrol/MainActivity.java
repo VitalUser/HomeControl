@@ -82,8 +82,6 @@ public class MainActivity extends AppCompatActivity {
     static final int DEF_PASS        =  0xA8A929;
     static final int SIGN_PASS       =  0xAFA55A;
     static final int localPort = 55550;
-    static final String defStunIP = "216.93.246.18";
-    static final int defStunPort = 3478;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
     static final String MSG_RCV = "MSG_received";
@@ -269,6 +267,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (sUDP==null){
             sUDP = new UDPserver(getApplicationContext(), pass);
+            sUDP.setSignalIP(signalIP);
             sUDP.start();
             Log.i(TAG, "new sUDP: "+sUDP.toString() );
         }
@@ -297,7 +296,7 @@ public class MainActivity extends AppCompatActivity {
         staticIP = prefs.getBoolean("id_cb_StaticIP", false);
         remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
         serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_serial", "0")));
-        pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
+        pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
         workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
         timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
 
@@ -602,6 +601,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (sUDP!=null){
                 sUDP.setPass(pass);
+                sUDP.setSignalIP(signalIP);
 //                sUDP.setDestPort(remPort);
 //                sUDP.setDestIP(remoteIP);
             }
@@ -1053,15 +1053,15 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private int getStunResponce(String ip, int port){
+    private int getStunResponce(){
         byte[] buf = new byte[20];
         buf[1]=1;
         buf[18]= (byte) 0xFF;
         buf[19]= 0 ;
 
-        sUDP.sendUdpPacket(buf, ip, port);
+        sUDP.sendStunPacket(buf);
         int att = 0;
-        while (((sUDP.getABbyte(0)!=1)||(sUDP.getABbyte(1)!=1))&&(att<200)){
+        while (sUDP.waitForStunUDP() && (att<200)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {
@@ -1084,11 +1084,11 @@ public class MainActivity extends AppCompatActivity {
                 int ind = 0;
                 int att = 200;
                 while ((ind<8)&&(att>=200)){
-                    att=getStunResponce(defStunIP, defStunPort);
+                    att=getStunResponce();
                     ind++;
                 }
                 if (ind<8){
-                    byte[] inBuf = sUDP.getABpart(26, 32);                          // from 26 to 31
+                    byte[] inBuf = sUDP.getStunPart(26, 32);                          // from 26 to 31
                     mappedIP = (inBuf[2]&0xFF)+"."+(inBuf[3]&0xFF)+"."+(inBuf[4]&0xFF)+"."+(inBuf[5]&0xFF);
                     mappedPort = ((inBuf[0]<<8)&0xFF00)+(inBuf[1]&0xFF);
                     Bundle bundle = new Bundle();
@@ -1120,23 +1120,20 @@ public class MainActivity extends AppCompatActivity {
                         Message msg = handler.obtainMessage();
                         byte[] ip = InetAddress.getByName(mappedIP).getAddress();
                         System.arraycopy(ip, 0, buf, 5, 4);
-                        if (askSigUDP(buf, signalIP)){
-                            byte[] sbuf = sUDP.getABpart(0, 30);
-                            int ps = (((sbuf[0]&0xFF) << 16) +((sbuf[1]&0xFF)<<8)+(sbuf[2]&0xFF));
-                            if (ps == DEF_PASS){
-                                switch (sbuf[7]){
-                                    case (byte)MSG_GUEST_DATA_PLACED:
-                                        peerIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", sbuf[12]&0xFF, sbuf[13]&0xFF, sbuf[14]&0xFF, sbuf[15]&0xFF);
-                                        peerPort = (sbuf[16]&0xFF)*0x100+(sbuf[17]&0xFF);
-                                        bundle.putInt("ThreadEnd", MSG_GOT_PEER_ADDR);
-                                        Log.i(TAG, "Signal answer: "+peerIP+" : "+peerPort);
-                                        break;
-                                    case (byte)MSG_HOST_NOT_FOUND:
-                                        Log.i(TAG, "Signal answer: Host not found");
-                                        bundle.putInt("ThreadEnd", MSG_NO_HOST);
-                                        break;
+                        if (askSigUDP(buf)){
+                            byte[] sbuf = sUDP.getSignalBuffer();
+                            switch (sbuf[0]){
+                                case (byte)MSG_GUEST_DATA_PLACED:
+                                    peerIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", sbuf[5]&0xFF, sbuf[6]&0xFF, sbuf[7]&0xFF, sbuf[8]&0xFF);
+                                    peerPort = (sbuf[9]&0xFF)*0x100+(sbuf[10]&0xFF);
+                                    bundle.putInt("ThreadEnd", MSG_GOT_PEER_ADDR);
+                                    Log.i(TAG, "Signal answer: "+peerIP+" : "+peerPort);
+                                    break;
+                                case (byte)MSG_HOST_NOT_FOUND:
+                                    Log.i(TAG, "Signal answer: Host not found");
+                                    bundle.putInt("ThreadEnd", MSG_NO_HOST);
+                                    break;
 
-                                }
                             }
                         }else{
                             bundle.putInt("ThreadEnd", MSG_NO_SIGNAL_ANSWER);
@@ -1391,7 +1388,7 @@ public class MainActivity extends AppCompatActivity {
                     sUDP.send(inBuf, (byte) NO_CONFIRM, hostCmd, devCmd);
                 }
                 int tm = 0;
-                while ((!sUDP.getConfirm())&(tm<timeout)){
+                while ((!sUDP.getConfirm())&&(tm<timeout)){
                     try {
                         TimeUnit.MILLISECONDS.sleep(1);
                     } catch (InterruptedException e) {
@@ -1410,14 +1407,14 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    boolean askSigUDP(byte[] inBuf, String dstIP) {
+    boolean askSigUDP(byte[] inBuf) {
         if (netInfo!=null){
             sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
-                sUDP.sendToSignal(inBuf, (byte) NO_CONFIRM, dstIP);
+                sUDP.sendToSignal(inBuf, (byte) NO_CONFIRM);
                 int tm = 0;
 
-                while ((!sUDP.getPacketOk())&(tm<timeout)){
+                while (sUDP.waitForSignalUDP() && (tm<timeout)){
                     try {
                         TimeUnit.MILLISECONDS.sleep(1);
                     } catch (InterruptedException e) {
@@ -1431,7 +1428,7 @@ public class MainActivity extends AppCompatActivity {
 
                 }
             }
-            Log.i(TAG, "No answer from signal server " + dstIP);
+            Log.i(TAG, "No answer from signal server " + signalIP);
         }
         return false;
     }

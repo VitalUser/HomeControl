@@ -1,7 +1,6 @@
 package com.vital.homecontrol;
 
 import android.annotation.SuppressLint;
-import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,7 +9,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.PersistableBundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
@@ -23,7 +21,6 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 public class StunActivity extends AppCompatActivity {
@@ -273,9 +270,9 @@ public class StunActivity extends AppCompatActivity {
         buf[18]= (byte) 0xFF;
         buf[19]= param ;
 
-        sUDP.sendUdpPacket(buf, ip, port);
+        sUDP.sendStunPacket(buf);
         int att = 0;
-        while ((!sUDP.getPacketOk())&&(att<200)){
+        while ((sUDP.waitForStunUDP())&&(att<200)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {
@@ -286,7 +283,7 @@ public class StunActivity extends AppCompatActivity {
         Log.i(TAG, " SendPacket, time = " + att + "mS");
 
         if (att<200){
-            parceUDPpacket(sUDP.getAB());
+            parceUDPpacket(sUDP.getStunBuffer());
         }
 
         return ((att<200)&&(rcvID==0xFF00+param));
