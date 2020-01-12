@@ -80,5 +80,6 @@
     <string name="not_set_signal_IP">Signal Server IP not set</string>
     <string name="no_signal_IP">Signal server inaccessible</string>
     <string name="no_host_at_signal_IP">not found in signal server</string>
-    <string name="no_remIP">Remote adress or port not set</string>
+    <string name="no_remIP">Remote address or port not set</string>
+    <string name="no_stun">Stun server not avaiable</string>
 </resources>

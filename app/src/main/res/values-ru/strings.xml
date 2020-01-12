@@ -81,4 +81,5 @@
     <string name="no_signal_IP">Нет ответа от сигнального сервера</string>
     <string name="no_host_at_signal_IP">не найдено  на сигнальном сервере</string>
     <string name="no_remIP">Статический адрес или порт устройства не установлен</string>
+    <string name="no_stun">Stun сервер недоступен</string>
 </resources>

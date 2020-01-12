@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
     static final int MSG_GOT_MAP_ADDR           =  0x03;
     static final int MSG_GOT_PEER_ADDR          =  0x04;
     static final int MSG_NO_HOST                =  0x05;
-    static final int MSG_NO_SIGNAL_SERVER       =  0x06;
+    static final int MSG_NO_STUN_ANSWER         =  0x06;
     static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
 
 
@@ -605,12 +605,7 @@ public class MainActivity extends AppCompatActivity {
 //                sUDP.setDestPort(remPort);
 //                sUDP.setDestIP(remoteIP);
             }
-            if (theme.equals(prefs.getString("key_theme", ""))){
- //               if (connMgr.getActiveNetworkInfo()!=null){
-//                    connectToHost();
-//                }
-            }else{
-
+            if (!theme.equals(prefs.getString("key_theme", ""))){
                 recreate();
             }
         }
@@ -935,7 +930,6 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-//                bundle.putInt("ThreadEnd", MSG_NO_SIGNAL_ANSWER);
                 int att = 0;
                 while ((peerIP.equals("0.0.0.0"))&&(att<2000)){
                     try {
@@ -959,7 +953,6 @@ public class MainActivity extends AppCompatActivity {
                     bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
                     msg.setData(bundle);
                     handler.sendMessage(msg);
-
                 }
 
             }
@@ -1024,11 +1017,14 @@ public class MainActivity extends AppCompatActivity {
                case MSG_GOT_MAP_ADDR:
                    st = mappedIP +" : " + mappedPort;
                    localIPtext.setText(st);
-                   if (signalIP.equals("0.0.0.0")){
-                       Toast.makeText(getApplicationContext(), getText(R.string.not_set_signal_IP), Toast.LENGTH_SHORT).show();
-                   }else{
-                       if ((!mappedIP.equals("0.0.0.0"))&&(mappedPort!=0)){
-                           askSignal();
+                   Log.i(TAG, " get MSG_GOT_MAP_ADDR: " + st);
+                   if (!connected){
+                       if (signalIP.equals("0.0.0.0")){
+                           Toast.makeText(getApplicationContext(), getText(R.string.not_set_signal_IP), Toast.LENGTH_SHORT).show();
+                       }else{
+                           if ((!mappedIP.equals("0.0.0.0"))&&(mappedPort!=0)){
+                               askSignal();
+                           }
                        }
                    }
                    break;
@@ -1049,6 +1045,14 @@ public class MainActivity extends AppCompatActivity {
 //                   pBar.setVisibility(View.INVISIBLE);
 //                   Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
                    break;
+               case MSG_NO_STUN_ANSWER:
+                   pBar.setVisibility(View.INVISIBLE);
+                   if (!connected){
+                       statusText.setText(R.string.no_connect);
+                       fText.setText("");
+                       Toast.makeText(getApplicationContext(), getText(R.string.no_stun), Toast.LENGTH_LONG).show();
+                   }
+                   break;
            }
         }
     };
@@ -1061,7 +1065,7 @@ public class MainActivity extends AppCompatActivity {
 
         sUDP.sendStunPacket(buf);
         int att = 0;
-        while (sUDP.waitForStunUDP() && (att<200)){
+        while (sUDP.waitForStunUDP() & (att<300)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {
@@ -1081,25 +1085,27 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
 
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
                 int ind = 0;
-                int att = 200;
-                while ((ind<8)&&(att>=200)){
+                int att;
+                do {
                     att=getStunResponce();
                     ind++;
-                }
-                if (ind<8){
+
+                }while ((att>=300)&&(ind<10));
+                if (ind<10){
                     byte[] inBuf = sUDP.getStunPart(26, 32);                          // from 26 to 31
                     mappedIP = (inBuf[2]&0xFF)+"."+(inBuf[3]&0xFF)+"."+(inBuf[4]&0xFF)+"."+(inBuf[5]&0xFF);
                     mappedPort = ((inBuf[0]<<8)&0xFF00)+(inBuf[1]&0xFF);
-                    Bundle bundle = new Bundle();
-                    Message msg = handler.obtainMessage();
                     bundle.putInt("ThreadEnd", MSG_GOT_MAP_ADDR);
-                    msg.setData(bundle);
-                    handler.sendMessage(msg);
                     Log.i(TAG, "Stun Responce: " + att + "mS in "+ind+" attempt");
                 }else{
+                    bundle.putInt("ThreadEnd", MSG_NO_STUN_ANSWER);
                     Log.i(TAG, "No STUN responce");
                 }
+                msg.setData(bundle);
+                handler.sendMessage(msg);
 
             }
         }).start();
@@ -1111,6 +1117,7 @@ public class MainActivity extends AppCompatActivity {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    Log.i(TAG, "ask signal "+signalIP);
                     byte[] buf = {(byte) PLACE_GUEST_DATA, (byte) ((serial >> 24)& 0xFF), (byte) ((serial >> 16)& 0xFF), (byte) ((serial >> 8)& 0xFF),
                             (byte) (serial & 0xFF), 0, 0, 0, 0, (byte) ((mappedPort >> 8)& 0xFF), (byte) (mappedPort & 0xFF)};
 
@@ -1388,7 +1395,7 @@ public class MainActivity extends AppCompatActivity {
                     sUDP.send(inBuf, (byte) NO_CONFIRM, hostCmd, devCmd);
                 }
                 int tm = 0;
-                while ((!sUDP.getConfirm())&&(tm<timeout)){
+                while ((sUDP.waitForConfirm())&&(tm<timeout)){
                     try {
                         TimeUnit.MILLISECONDS.sleep(1);
                     } catch (InterruptedException e) {
@@ -1436,7 +1443,7 @@ public class MainActivity extends AppCompatActivity {
    /*
     public boolean waitForConfirm(int timeout){
         int att = 0;
-        while ((!sUDP.getConfirm())&(att<timeout)){
+        while ((!sUDP.waitForConfirm())&(att<timeout)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {

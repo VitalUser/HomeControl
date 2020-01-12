@@ -23,6 +23,7 @@ import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class StatActivity extends AppCompatActivity {
@@ -71,7 +72,7 @@ public class StatActivity extends AppCompatActivity {
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
 
-        switch (prefs.getString("key_theme", "")){
+        switch (Objects.requireNonNull(prefs.getString("key_theme", ""))){
             case "Dark":
                 setTheme(R.style.AppThemeDark);
                 break;
@@ -99,7 +100,7 @@ public class StatActivity extends AppCompatActivity {
 
 // http://www.android-graphview.org
 // https://github.com/jjoe64/GraphView-Demos/tree/master/app/src/main/java/com/jjoe64/graphview_demos/examples
-        graph = (GraphView)findViewById(R.id.stat_graf);
+        graph = findViewById(R.id.stat_graf);
 
         ArrayList<Float> inbuf = (ArrayList<Float>) getIntent().getSerializableExtra("statBuff");
         sensorTyp = getIntent().getIntExtra("snsType", 0);
@@ -112,7 +113,7 @@ public class StatActivity extends AppCompatActivity {
         String snsText = getIntent().getStringExtra("snsText");
         setTitle(snsTyp + " "+snsText);
 
-        valPeriod = (TextView)findViewById(R.id.val_period);
+        valPeriod = findViewById(R.id.val_period);
         String stp = DateUtils.formatElapsedTime((long) (period*minStatPeriod));
         valPeriod.setText(stp);
         valPeriod.setOnClickListener(new View.OnClickListener() {
@@ -311,7 +312,7 @@ public class StatActivity extends AppCompatActivity {
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (sUDP == null) {
-            int pass = Integer.parseInt(prefs.getString("key_udppass", "0"));
+            int pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
             sUDP = new UDPserver(this, pass);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
@@ -340,7 +341,7 @@ public class StatActivity extends AppCompatActivity {
 
     public boolean waitForConfirm(){
         int att = 0;
-        while ((!sUDP.getConfirm())&(att<100)){
+        while ((sUDP.waitForConfirm())&(att<100)){
             try {
                 TimeUnit.MILLISECONDS.sleep(2);
             } catch (InterruptedException e) {

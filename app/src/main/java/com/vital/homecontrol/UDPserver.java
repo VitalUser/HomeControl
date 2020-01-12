@@ -284,8 +284,8 @@ class UDPserver {
         return this.signBuff;
     }
 
-    boolean getConfirm(){
-        return this.confirmOk;
+    boolean waitForConfirm(){
+        return !confirmOk;
     }
 
 
@@ -293,11 +293,11 @@ class UDPserver {
 
 
     boolean waitForSignalUDP(){
-        return !this.signUDPok;
+        return !signUDPok;
     }
 
     boolean waitForStunUDP(){
-        return !this.stunUDPok;
+        return !stunUDPok;
     }
 
 
