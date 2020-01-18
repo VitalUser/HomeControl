@@ -66,7 +66,7 @@ import static java.lang.Thread.currentThread;
 import static java.lang.Thread.sleep;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements UDPserver.UDPlistener {
 
     private static final String TAG = "MyclassMain";
     
@@ -78,13 +78,8 @@ public class MainActivity extends AppCompatActivity {
 
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
-//    static final int RK_STUN = 1002;
-//    static final int DEF_PASS        =  0xA8A929;
-//    static final int SIGN_PASS       =  0xAFA55A;
-//    static final int localPort = 55550;
     static final int BC_Dev = 0x7F;
-    static final String UDP_RCV = "UDP_received";
-//    static final String MSG_RCV = "MSG_received";
+//    static final String UDP_RCV = "UDP_received";
     static final String STATE_CONNECTED = "Connected";
     static final String STATE_WIFI = "WorkWiFi";
     static final String STATE_EXECDEVS = "ExecDevices";
@@ -176,11 +171,12 @@ public class MainActivity extends AppCompatActivity {
 
 
 //    private ConnectivityManager connMgr;
+//    private OnFragmentInteractionListener mListener;
     private NetworkInfo netInfo;
     private WifiManager wifiMgr;
 //    private Boolean isShowDialog = false;
     private Boolean netRecieverRegistered = false;
-    private Boolean udpRecieverRegistered = false;
+//    private Boolean udpRecieverRegistered = false;
 //    private Boolean msgRecieverRegistered;
     private Boolean workWiFi = false;
     private Boolean remote = false;
@@ -248,6 +244,8 @@ public class MainActivity extends AppCompatActivity {
         sensCountText.setText("0");
         fText = findViewById(R.id.f_text);
 
+
+
         initiateStorage();
 
         updateConfig();
@@ -266,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
         sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
 
         if (sUDP==null){
-            sUDP = new UDPserver(getApplicationContext(), pass);
+            sUDP = new UDPserver(getApplicationContext(), pass, this);
             sUDP.setSignalIP(signalIP);
             sUDP.start();
             Log.i(TAG, "new sUDP: "+sUDP.toString() );
@@ -440,10 +438,10 @@ public class MainActivity extends AppCompatActivity {
             unregisterReceiver(netReciever);
             netRecieverRegistered=false;
         }
-        if (udpRecieverRegistered){
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(udpReciever);
-            udpRecieverRegistered=false;
-        }
+//        if (udpRecieverRegistered){
+//            LocalBroadcastManager.getInstance(this).unregisterReceiver(udpReciever);
+//            udpRecieverRegistered=false;
+//        }
 
 
 //        timer.cancel();
@@ -453,38 +451,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        /*
-        if (sUDP!=null){
-            askIP();
-        }
-        if (connected){
-//            connected=true;
-            devCountText.setText(String.format(Locale.getDefault(),"%d", execDevs.size()));
-            sensCountText.setText(String.format(Locale.getDefault(),"%d", sensors.size()));
-            String link;
-            if (remote){
-                link = "MapAddr ("+ getLocalIP() + ") <--> " + remoteIP +  " ("+ devLocalIP + ")";
-
-            }else{
-                link = getLocalIP() + " <--> " + devLocalIP;
-            }
-            fText.setText(link);
-        }else {
-            if (sUDP!=null){
-                if (remote){
-                    connectToHost(remoteIP, remPort);
-                }else{
-                    if (!devLocalIP.equals("")){
-                        connectToHost(devLocalIP, defaultPort);
-                    }else{
-                        connectToHost(stringIP(getBroadcastWiFiIP()), defaultPort);
-                    }
-                }
-
-            }
-        }
-
-         */
         Log.i(TAG, " onResume in MainActivity " );
 //        timer.schedule(task, 1000, 2000);
     }
@@ -505,11 +471,9 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(netReciever,ifilter);
         netRecieverRegistered=true;
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(udpReciever, new IntentFilter(UDP_RCV));
-        udpRecieverRegistered = true;
+//        LocalBroadcastManager.getInstance(this).registerReceiver(udpReciever, new IntentFilter(UDP_RCV));
+//        udpRecieverRegistered = true;
 
-//        LocalBroadcastManager.getInstance(this).registerReceiver(msgReciever, new IntentFilter(MSG_RCV));
-//        msgRecieverRegistered = true;
     }
 
     @Override
@@ -737,69 +701,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         break;
                 }
-
             }
-
-
-            /*
-            if (netInfo != null){
-                getMappedAddress(defStunIP, defStunPort);
-            }else{
-                Log.i(TAG, " NetInfoReceiver - netInfo = null" );
-                setTitle(getString(R.string.app_name)  + getString(R.string.no_net));
-            }
-
-            if (wifiMgr.getWifiState() == WifiManager.WIFI_STATE_DISABLED){       // WiFi is OFF
-                if (workWiFi){
-                    if (!isShowDialog){
-                        wifiOnDialog();
-                    }
-                }else{
-                    if (netInfo != null){
-                        remoteIP = prefs.getString("key_remIP", "0.0.0.0");
-                        String stPort = prefs.getString("key_port", "0");
-                        remPort = Integer.parseInt(stPort);
-                        if (remoteIP.equals("0.0.0.0")){
-                            Toast.makeText(getApplicationContext(), "WiFi is OFF\nRemote IP not set", Toast.LENGTH_LONG).show();
-                        }else{
-                            remote = true;
-                            connectToHost(remoteIP, remPort);
-                        }
-                    }else{
-                        Toast.makeText(getApplicationContext(), "WiFi is OFF, no network", Toast.LENGTH_LONG).show();
-                        destIPtext.setText(getString(R.string.no_net));
-                    }
-                }
-            }
-
-            if (wifiMgr.getWifiState() == WifiManager.WIFI_STATE_ENABLED){       // WiFi is ON
-                if (netInfo != null){               // Net present
-//                    Toast.makeText(getApplicationContext(), "WiFi is ON, "+netInfo.getTypeName(), Toast.LENGTH_LONG).show();
-                    if (netInfo.getType()==ConnectivityManager.TYPE_WIFI){          // WiFi is ON, connected to acsess point
-                        if (!connected){
-                            remote = false;
-                            connectToHost(stringIP(getBroadcastWiFiIP()), defaultPort);
-                        }
-
-                    }else{
-                        if (netInfo.getType()==ConnectivityManager.TYPE_MOBILE){    // WiFi is ON, but no acsess point found, MobileNet is ON
-                            Log.i(TAG, " broadcast:  WiFi is ON, net = mobile try tryMobileConnect");
-                            String tn = getString(R.string.connected)+" "+netInfo.getTypeName();
-                            statusText.setText(tn);
-//                            titleStr = " WiFi is ON, "+netInfo.getTypeName();
-//                            setTitle(getString(R.string.app_name)  + titleStr);
-//                            tryMobileConnect();
-                        }
-                    }
-
-                }else{                                  // WiFi is ON, but no acsess point found, MobileNet is OFF
-//                    titleStr = "WiFi ON, No Net";
-//                    setTitle(getString(R.string.app_name)  + titleStr);
-                    Log.i(TAG, " broadcast:  WiFi is ON, No network");
-                    statusText.setText(getString(R.string.no_net));
-                }
-            */
-//            Log.i(TAG, " end_netReciever  -------------------------------------------------" );
         }
     };
 
@@ -1438,78 +1340,40 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-   /*
-    public boolean waitForConfirm(int timeout){
-        int att = 0;
-        while ((!sUDP.waitForConfirm())&(att<timeout)){
-            try {
-                TimeUnit.MILLISECONDS.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            att++;
-        }
-        Log.i(TAG, " waitForConfirm, time = " + att + "mS");
-        return (att<timeout);
-    }
 
-    public boolean connectIsValid(){
-        if (!devLocalIP.equals("")){
-            byte[] outBuf = {ASK_IP};
-            for (int i = 1; i <4 ; i++) {
-                sUDP.send(outBuf, (byte) NO_CONFIRM, MSG_ANSW_IP, 0);
-                if (waitForConfirm(50)){
-                    Log.i(TAG, " connectIsValid : confirm "+Integer.toHexString(MSG_ANSW_IP)+ " :" + i);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
 
-    */
+    @Override
+    public void onRxUDP(byte[] inData) {
+        Log.i(TAG, "onRxUDP: " + byteArrayToHex(inData, inData.length));
+        int len = inData.length;
+        if (len>7){
+
+            byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
+            sUDP.lastID= (byte) (inData[3]&0xFF);
+            Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+            if (recvBuff[0]!=(byte)MSG_RCV_OK){
+                parceFromHub(recvBuff);
+            }
+
+        }
+    }
 
 
 
 
 
     //-------------------------------------------------------------------------------------------------------------------------------------------------
+    /*
     private BroadcastReceiver udpReciever = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-//            int attempt = intent.getIntExtra("Attempt", 0);
             byte[] inData = intent.getByteArrayExtra("Buffer");
-            int len = inData.length;
-            if (len>7){
-
-                byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
-                sUDP.lastID= (byte) (inData[3]&0xFF);
-                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
-                if (recvBuff[0]!=(byte)MSG_RCV_OK){
-                    parceFromHub(recvBuff);
-                }
-
-                /*
-                int ps = (((inData[0]&0x7F) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));    // first 3 bytes - pass
-                if (ps==pass){
-                    if ((inData[3]&0xFF)!=sUDP.getLastID()){                                              // next byte - packet ID, next - attempt, next 2 - reserved
-
-
-                    }
-                    else{
-                        Log.i(TAG, " Receive repeat:  "+ byteArrayToHex(inData, len) );
-                    }
-
-                }
-
-                 */
-
-
-
-            }
+            Log.i(TAG, "udpReciever In:  "+ byteArrayToHex(inData, inData.length));
 
         }
     };
+
+     */
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1670,9 +1534,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
-
-
-
 
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------

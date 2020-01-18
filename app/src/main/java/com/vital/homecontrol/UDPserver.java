@@ -1,7 +1,12 @@
 package com.vital.homecontrol;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
@@ -28,6 +33,7 @@ class UDPserver {
     private static final String defStunIP = "216.93.246.18";
     private static final int defStunPort = 3478;
 
+    UDPlistener uL;
     private Context context;
     private String destIP;
     private String signalIP;
@@ -47,7 +53,7 @@ class UDPserver {
     private byte[] signBuff;
     private byte[] stunBuff;
 
-    UDPserver(Context context, int pass){
+    UDPserver(Context context, int pass, UDPlistener uL){
         this.context = context;
         this.destIP = "0.0.0.0";
         this.signalIP = "0.0.0.0";
@@ -64,9 +70,115 @@ class UDPserver {
         this.stunUDPok = false;
         this.hostCmd = 0;
         this.devCmd = 0;
+        this.uL = uL;
         Log.i(TAG, " New UDP-server listen ");
 
     }
+
+    public interface UDPlistener{
+        void onRxUDP(byte[] buf);
+    }
+
+    /*
+    void start(){
+        ListenServer ls = new ListenServer();
+        ls.execute();
+
+    }
+
+    private class ListenServer extends AsyncTask<Void, byte[],Void>{
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            try {
+                DatagramSocket sUDP = new DatagramSocket(null);
+                sUDP.setReuseAddress(true);
+                sUDP.bind(new InetSocketAddress(localPort));
+                byte[] inData = new byte[512];
+                while (true){
+                    DatagramPacket inUDP = new DatagramPacket(inData, inData.length);    // first 3 bytes - pass
+                    sUDP.receive(inUDP);                                                // next byte - packet ID, next - attempt, next 2 - reserved
+                    int len = inUDP.getLength();                                        // total - 7
+                    if (len>7){
+                        int ps = (((inData[0]&0xFF) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
+                        if (ps == pass){
+                            if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                currentID++;
+                                byte[] buf = {(byte) MSG_RCV_OK};
+                                Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                send(buf, (byte) NO_CONFIRM, 0, 0);
+                            }
+                            if ((inData[3]&0xFF)!=lastID){
+                                workBuff = Arrays.copyOfRange(inData,7,len);
+                                lastID= (byte) (inData[3]&0xFF);
+                                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+
+                                if ((inData[7]&0xFF)==hostCmd){
+                                    if (devCmd==0){
+                                        confirmOk=true;
+                                    }else{
+                                        if ((inData[10]&0xFF)==devCmd){
+                                            confirmOk=true;
+                                        }
+                                    }
+                                }
+                                Log.i(TAG, " In: confirmOk = "+ confirmOk);
+                                publishProgress(Arrays.copyOf(inData, len));
+
+
+                                Intent intent = new Intent(UDP_RCV);
+                                intent.putExtra("Buffer", Arrays.copyOf(inData, len));
+                                LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+
+                            }
+                            else{
+                                Log.i(TAG, " Receive repeat work:  "+ inData[4]);
+                            }
+                        }
+                        if (ps == SIGN_PASS){
+                            if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                currentID++;
+                                byte[] buf = {(byte) MSG_RCV_OK};
+                                Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                sendToSignal(buf, (byte) NO_CONFIRM);
+                            }
+                            if ((inData[3]&0xFF)!=lastID){
+                                signBuff = Arrays.copyOfRange(inData,7,len);
+                                lastID= (byte) (inData[3]&0xFF);
+                                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+
+                                signUDPok = true;
+
+
+                            }
+                            else{
+                                Log.i(TAG, " Receive repeat signal:  "+ inData[4]);
+                            }
+                        }
+                        if ((ps & 0xFFFF00) == 0x010100){                   // STUN responce
+                            stunBuff = Arrays.copyOf(inData, len);
+                            stunUDPok = true;
+                            Log.i(TAG, "Alt In:  "+ byteArrayToHex(inData, len));
+
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(byte[]... values) {
+            super.onProgressUpdate(values);
+            uL.onRxUDP(values[0]);
+        }
+    }
+
+     */
+
 
     void start(){
         new Thread(new Runnable(){
@@ -74,8 +186,6 @@ class UDPserver {
             @Override
             public void run() {
                 try {
- //                   confirmOk = false;
- //                   packetUDPok = false;
                     DatagramSocket sUDP = new DatagramSocket(null);
                     sUDP.setReuseAddress(true);
                     sUDP.bind(new InetSocketAddress(localPort));
@@ -109,9 +219,17 @@ class UDPserver {
                                     }
                                     Log.i(TAG, " In: confirmOk = "+ confirmOk);
 
+                                    Bundle bundle = new Bundle();
+                                    Message msg = handler.obtainMessage();
+                                    bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
+                                    msg.setData(bundle);
+                                    handler.sendMessage(msg);
+
+
                                     Intent intent = new Intent(UDP_RCV);
                                     intent.putExtra("Buffer", Arrays.copyOf(inData, len));
                                     LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+
 
                                 }
                                 else{
@@ -154,6 +272,18 @@ class UDPserver {
         }).start();
 
     }
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+
+        @Override
+        public void handleMessage(Message msg) {
+            Bundle bundle = msg.getData();
+            byte[] buf = bundle.getByteArray("NewPacket");
+            uL.onRxUDP(buf);
+        }
+    };
+
 
     void send(final byte[] buffer, final byte attempt, int hCmd, int dCmd){
         hostCmd=hCmd;

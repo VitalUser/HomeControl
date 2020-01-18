@@ -46,7 +46,10 @@ import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_STATE;
 import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
 
-public class PageFragment extends Fragment {
+
+
+public class PageFragment extends Fragment implements UDPserver.UDPlistener {
+
     private static final String TAG = "MyclassPageFragment";
     public static final String ARG_PAGE = "ARG_PAGE";
 //    public static final String ARG_FR_ID = "ARG_FR_ID";
@@ -111,21 +114,13 @@ public class PageFragment extends Fragment {
     private final int M_SHOW_STAT   = 16;
 
     private int mPage;
-//    private static View selectedView;
     private View selectedView;
     private ViewGroup vGroup;
     private ViewGroup mTable;
     private MainActivity act;
-//    private int lastCommand = 0;
-//    private int changedState = 0;
 
-//    private Config config;
     private Boolean udpRecieverRegistered;
     private int orientation;
-//    public List<View> btnArray = new ArrayList<>();
-//    public  List<View> snsArray = new ArrayList<>();
-//    private List<ExecDevice> execDevs = new ArrayList<>();
-//    private List<SensorDevice> sensors = new ArrayList<>();
 
     private List<ControlElement> controls = new ArrayList<>();
 
@@ -1059,6 +1054,11 @@ public class PageFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onRxUDP(byte[] inBuf) {
+        parceFromHub(Arrays.copyOfRange(inBuf, 7, inBuf.length));
+    }
+
     BroadcastReceiver udpReciever = new BroadcastReceiver() {
 
         @Override
@@ -1266,7 +1266,6 @@ public class PageFragment extends Fragment {
         }
         return (float) 0;
     }
-
 
 
 }
