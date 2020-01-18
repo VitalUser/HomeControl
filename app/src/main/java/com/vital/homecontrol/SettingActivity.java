@@ -1,13 +1,10 @@
 package com.vital.homecontrol;
 
-import android.app.Activity;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.EditTextPreference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
-import java.util.List;
+import java.util.Objects;
 
 // https://developer.android.com/guide/topics/ui/settings
 
@@ -15,7 +12,7 @@ import java.util.List;
 public class SettingActivity extends PreferenceActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        switch (PreferenceManager.getDefaultSharedPreferences(this).getString("key_theme", "")){
+        switch (Objects.requireNonNull(PreferenceManager.getDefaultSharedPreferences(this).getString("key_theme", ""))){
             case "Dark":
                 setTheme(R.style.AppThemeDark);
                 break;

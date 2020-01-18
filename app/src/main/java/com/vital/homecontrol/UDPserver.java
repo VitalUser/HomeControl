@@ -18,7 +18,7 @@ class UDPserver {
     private static final String UDP_RCV = "UDP_received";
 //    private static final String UDP_PACKET_RCV = "UDP_PacketReceived";
 
-    private static final int DEF_PASS        =  0xA8A929;
+//    private static final int DEF_PASS        =  0xA8A929;
     private static final int SIGN_PASS       =  0xAFA55A;
     private static final int SIGN_PORT       =  16133;
     private static final int MSG_RCV_OK      =  0xA5;
@@ -257,6 +257,7 @@ class UDPserver {
         return this.workBuff;
     }
 
+    /*
     int getStunByte(int index){
         if (index<this.stunBuff.length){
             return this.stunBuff[index]&0xFF;
@@ -264,6 +265,7 @@ class UDPserver {
             return 0;
         }
     }
+
 
     byte[] getStunPart(int from, int to){
         if (from<=to){
@@ -275,9 +277,14 @@ class UDPserver {
         }
         return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
     }
+     */
 
-    byte[] getStunBuffer(){
-        return this.stunBuff;
+    byte[] getMappetData(){
+        if (stunBuff.length>32){
+            return Arrays.copyOfRange(this.stunBuff, 26, 32);
+        }else{
+            return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
+        }
     }
 
     byte[] getSignalBuffer(){

@@ -78,13 +78,13 @@ public class MainActivity extends AppCompatActivity {
 
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
-    static final int RK_STUN = 1002;
-    static final int DEF_PASS        =  0xA8A929;
-    static final int SIGN_PASS       =  0xAFA55A;
-    static final int localPort = 55550;
+//    static final int RK_STUN = 1002;
+//    static final int DEF_PASS        =  0xA8A929;
+//    static final int SIGN_PASS       =  0xAFA55A;
+//    static final int localPort = 55550;
     static final int BC_Dev = 0x7F;
     static final String UDP_RCV = "UDP_received";
-    static final String MSG_RCV = "MSG_received";
+//    static final String MSG_RCV = "MSG_received";
     static final String STATE_CONNECTED = "Connected";
     static final String STATE_WIFI = "WorkWiFi";
     static final String STATE_EXECDEVS = "ExecDevices";
@@ -178,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
 //    private ConnectivityManager connMgr;
     private NetworkInfo netInfo;
     private WifiManager wifiMgr;
-    private Boolean isShowDialog = false;
+//    private Boolean isShowDialog = false;
     private Boolean netRecieverRegistered = false;
     private Boolean udpRecieverRegistered = false;
 //    private Boolean msgRecieverRegistered;
@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
     private String theme;
     public String storageDir;
     private int timeout;
-    public boolean cnf;
+//    public boolean cnf;
 
 
     @Override
@@ -501,6 +501,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, " onStart in MainActivity ");
         IntentFilter ifilter = new IntentFilter();
         ifilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+
         registerReceiver(netReciever,ifilter);
         netRecieverRegistered=true;
 
@@ -577,11 +578,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, RK_SETTING);
                 return true;
 
-            case R.id.action_nat:
-                Intent intStun = new Intent();
-                intStun.setClass(this, StunActivity.class);
-//                startActivityForResult(intStun, RK_STUN);
-                startActivity(intStun);
         }
         return super.onOptionsItemSelected(item);
     }
@@ -820,7 +816,7 @@ public class MainActivity extends AppCompatActivity {
                         SharedPreferences.Editor editor = prefs.edit();
                         editor.putBoolean("id_cb_WorkWiFi",workWiFi);
                         editor.apply();
-                        isShowDialog = false;
+//                        isShowDialog = false;
                     }
                 })
                 .setPositiveButton("Да", new DialogInterface.OnClickListener() {
@@ -829,11 +825,11 @@ public class MainActivity extends AppCompatActivity {
                         Log.i(TAG, " wifiOnDialog - yes");
                         statusText.setText(R.string.connecting);
                         wifiMgr.setWifiEnabled(true);
-                        isShowDialog = false;
+//                        isShowDialog = false;
                     }
                 });
         AlertDialog alert = builder.create();
-        isShowDialog = true;
+//        isShowDialog = true;
         alert.show();
     }
 
@@ -1095,7 +1091,7 @@ public class MainActivity extends AppCompatActivity {
 
                 }while ((att>=300)&&(ind<10));
                 if (ind<10){
-                    byte[] inBuf = sUDP.getStunPart(26, 32);                          // from 26 to 31
+                    byte[] inBuf = sUDP.getMappetData();                          // from 26 to 31
                     mappedIP = (inBuf[2]&0xFF)+"."+(inBuf[3]&0xFF)+"."+(inBuf[4]&0xFF)+"."+(inBuf[5]&0xFF);
                     mappedPort = ((inBuf[0]<<8)&0xFF00)+(inBuf[1]&0xFF);
                     bundle.putInt("ThreadEnd", MSG_GOT_MAP_ADDR);
@@ -1361,6 +1357,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /*
     public void drawRcvStatus(int attempt, boolean result){
         final SpannableStringBuilder text = new SpannableStringBuilder("*****");
         final ForegroundColorSpan styleRed = new ForegroundColorSpan(Color.rgb(255, 0, 0));
@@ -1381,8 +1378,9 @@ public class MainActivity extends AppCompatActivity {
 
         }
         statusText.setText(text);
-
     }
+
+     */
 
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
@@ -1660,14 +1658,6 @@ public class MainActivity extends AppCompatActivity {
 
     public String readStr(String key){
         return config.getStr(key);
-    }
-
-    public List<String> readValues(String key){
-        return config.getValues(key);
-    }
-
-    public List<String> readKeysforValue(String value){
-        return config.getKeysforValue(value);
     }
 
     public List<String> readKeys(String key){

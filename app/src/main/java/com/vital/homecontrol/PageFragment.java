@@ -49,16 +49,14 @@ import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
 public class PageFragment extends Fragment {
     private static final String TAG = "MyclassPageFragment";
     public static final String ARG_PAGE = "ARG_PAGE";
-    public static final String ARG_FR_ID = "ARG_FR_ID";
+//    public static final String ARG_FR_ID = "ARG_FR_ID";
     static final String UDP_RCV = "UDP_received";
 //    static final String STATE_EXECDEVS = "ExecDevices";
 
     SharedPreferences prefs;
 
-    private final String ROOM_NAME_KEY = "RoomName";
     private final String CELL_W = "CellWidth";
     private final String CELL_H = "CellHeight";
-    private final String CELL_N = "CellNum";        // format: CELL_N + _P_(_L_) + cell_addr (0P0R0C),  value: ctrl_num (xPxxN)
 
     private final String BTN_TEXT = "BtnText";      // format: BTN_TEXT + "N" + ctrl_num
     private final String BTN_UP_TEXT = "BtnUpText";      // format: BTN_UP_TEXT + "N" + ctrl_num
@@ -69,9 +67,9 @@ public class PageFragment extends Fragment {
 
     private final String CELL_TYPE = "CellType";      // format: CELL_TYPE + "N" + ctrl_num
     // values for CELL_TYPE
-    private final String TYPE_BUTTON_UP = "ButtonUp";
+//    private final String TYPE_BUTTON_UP = "ButtonUp";
     private final String TYPE_BUTTON_SQ = "ButtonSq";
-    private final String TYPE_BUTTON_DN = "ButtonDn";
+//    private final String TYPE_BUTTON_DN = "ButtonDn";
     private final String TYPE_SENSOR = "Sensor";
 
     private final String BTN_LA = "BtnL_Address";
@@ -124,8 +122,8 @@ public class PageFragment extends Fragment {
 //    private Config config;
     private Boolean udpRecieverRegistered;
     private int orientation;
-    public List<View> btnArray = new ArrayList<>();
-    public  List<View> snsArray = new ArrayList<>();
+//    public List<View> btnArray = new ArrayList<>();
+//    public  List<View> snsArray = new ArrayList<>();
 //    private List<ExecDevice> execDevs = new ArrayList<>();
 //    private List<SensorDevice> sensors = new ArrayList<>();
 
@@ -395,6 +393,7 @@ public class PageFragment extends Fragment {
 //            int page = (int) v.getTag(R.id.tbl_page);
 //            int row = (int) v.getTag(R.id.tbl_row);
 //            int col = (int) v.getTag(R.id.tbl_col);
+        String ROOM_NAME_KEY = "RoomName";
         switch (typ){
             case IS_CELL:
 //                    menuInflater.inflate(R.menu.tbl_context_menu, menu);
@@ -997,14 +996,10 @@ public class PageFragment extends Fragment {
                     ArrayList<Float> data = new ArrayList<>();
                     for (int i = count-1; i >=0 ; i--) {
                         int val;
-                        switch (stat[4]){
-                            case IS_PRESS:
-                                val = ((stat[i*3+8]&0xFF)<<16 | (stat[i*3+9]&0xFF)<<8 | stat[i*2+10]&0xFF);
-                                break;
-                            default:
-                                val = ((stat[i*2+8]&0xFF)<<8 | stat[i*2+9]&0xFF);
-                                break;
-
+                        if (stat[4] == IS_PRESS) {
+                            val = ((stat[i * 3 + 8] & 0xFF) << 16 | (stat[i * 3 + 9] & 0xFF) << 8 | stat[i * 2 + 10] & 0xFF);
+                        } else {
+                            val = ((stat[i * 2 + 8] & 0xFF) << 8 | stat[i * 2 + 9] & 0xFF);
                         }
                         if (val>0){
                             data.add(getFloatSensorValue(val, model, typ));
@@ -1139,6 +1134,7 @@ public class PageFragment extends Fragment {
     }
 
 
+    /*
     private String getTypeSensor(int typ){
         switch (typ){
             case IS_DS18B20 : return "DS18B20";
@@ -1147,6 +1143,8 @@ public class PageFragment extends Fragment {
             default: return "";
         }
     }
+
+     */
 
 
 
@@ -1212,6 +1210,7 @@ public class PageFragment extends Fragment {
         }
     }
 
+    /*
     private void setSensorData(TextView sns, int snsIndex, int sensType){
         if (sns!=null){
             sns.setText(act.sensors.get(snsIndex).getValue(sensType));
@@ -1222,6 +1221,8 @@ public class PageFragment extends Fragment {
         ViewGroup vcols = (ViewGroup) mTable.getChildAt(aRow-1);
         return vcols.getChildAt(aCol-1);
     }
+
+     */
 
 
 //-----------------------------------------------controls functions---------------------------------------------------------
@@ -1255,14 +1256,12 @@ public class PageFragment extends Fragment {
                         return (float) (inData/10);
                 }
             case IS_HUM:
-                switch (model){
-                    case IS_SHT21:
-                        return (float) (((inData&0xFFFC)*125)/0x10000 - 6);
+                if (model == IS_SHT21) {
+                    return (float) (((inData & 0xFFFC) * 125) / 0x10000 - 6);
                 }
             case IS_PRESS:
-                switch (model){
-                    case IS_BMP180:
-                        return (float) (inData/100);
+                if (model == IS_BMP180) {
+                    return (float) (inData / 100);
                 }
         }
         return (float) 0;
