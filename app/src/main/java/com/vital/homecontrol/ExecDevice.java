@@ -4,22 +4,25 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Locale;
+
 public class ExecDevice implements Parcelable {
     private static final String TAG = "MyclassExecDevice";
     private int mDevNum;
     private byte mOutState;
     private int mOutCount;
     private String[] mLampText;
+    private ArrayList<Byte> mem;
 
     public ExecDevice(int devNum, byte outState, int outCount){
         this.mDevNum = devNum;
         this.mOutState = outState;
         this.mOutCount = outCount;
         this.mLampText = new String[outCount];
-        for (int i = 0; i <this.mLampText.length ; i++) {
-            this.mLampText[i]="";
-
-        }
+        Arrays.fill(this.mLampText, "");
+        mem = new ArrayList<>();
     }
 
     public ExecDevice(Parcel in) {
@@ -30,9 +33,9 @@ public class ExecDevice implements Parcelable {
         mOutState = (byte) data[1];
     }
 
-    public void setDevNum(int devNum){
-        mDevNum = devNum;
-    }
+//    public void setDevNum(int devNum){
+//        mDevNum = devNum;
+//    }
 
     public void setOutState(byte outState){
         Log.i(TAG, " setOutState: "+outState );
@@ -87,5 +90,45 @@ public class ExecDevice implements Parcelable {
             return new ExecDevice[size];
         }
     };
+
+    public void addMem(byte[] inbuf){
+        for (byte b : inbuf) {
+            this.mem.add(this.mem.size(), b);
+        }
+    }
+
+    public int getNumCmd(int index){
+        int offs = 1 + index*5;
+        if ((offs+1)<this.mem.size()){
+            return (this.mem.get(offs) & 0xFF) * 0x100 + (this.mem.get(offs+1) & 0xFF);
+        }else {
+            return 0;
+        }
+    }
+
+    public String getCmdParamStr(int index){
+        int offs = 1 + index*5;
+        if ((offs+4)<this.mem.size()){
+            return String.format(Locale.getDefault(), "%02x%02x%02x", this.mem.get(offs+2), this.mem.get(offs+3), this.mem.get(offs+4));
+        }else {
+            return "000000";
+        }
+    }
+
+    public void clearMem(){
+        this.mem.clear();
+    }
+
+    public boolean memEmpty(){
+        return this.mem.size()==0;
+    }
+
+    public int getCmdCount(){
+        if (this.mem.size()>0){
+            return mem.get(0);
+        }else{
+            return 0;
+        }
+    }
 
 }

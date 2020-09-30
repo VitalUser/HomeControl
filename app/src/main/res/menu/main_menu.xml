@@ -30,4 +30,16 @@
         android:title="@string/setting"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_GetNames"
+        android:orderInCategory="6"
+        android:title="@string/getnames"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_GetCommands"
+        android:orderInCategory="7"
+        android:title="@string/getcmds"
+        app:showAsAction="never" />
+
 </menu>

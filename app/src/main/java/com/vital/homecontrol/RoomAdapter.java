@@ -6,15 +6,18 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.util.Log;
+import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class RoomAdapter extends FragmentPagerAdapter {
     private static final String TAG = "MyclassRoomAdapter";
     private List<String> names;
     private long baseId = 0;
+    int posToDelete = -1;
 
 
     public RoomAdapter(FragmentManager fm, List<String> pageNames) {
@@ -30,6 +33,7 @@ public class RoomAdapter extends FragmentPagerAdapter {
     }
 
 
+
     @Override
     public int getCount() {
         return names.size();
@@ -38,17 +42,22 @@ public class RoomAdapter extends FragmentPagerAdapter {
 
     @Override
     public int getItemPosition(@NonNull Object object) {
-        /*
-        String ss =  ((Fragment)object).getTag();
-        int position = Integer.parseInt(ss.substring(ss.lastIndexOf(":")+1));
+         String ss =  ((Fragment)object).getTag();
+        int position = Integer.parseInt(Objects.requireNonNull(ss).substring(ss.lastIndexOf(":")+1));
         if (position==posToDelete){
             posToDelete=-1;
             return  POSITION_NONE;
         }else{
             return super.getItemPosition(object);
         }
-        */
-        return  POSITION_NONE;
+       /*
+
+        int ind = names.indexOf(object);
+        if (ind == -1)
+          return  POSITION_NONE;
+        else
+          return ind;
+          */
     }
 
     @Override
@@ -64,8 +73,8 @@ public class RoomAdapter extends FragmentPagerAdapter {
     }
 
     public void delPage(int index){
-        names.remove(index);
-//        roomCount--;
+//        names.remove(index);
+        posToDelete = index;
         notifyDataSetChanged();
     }
 

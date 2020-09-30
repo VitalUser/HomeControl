@@ -82,4 +82,23 @@
     <string name="no_host_at_signal_IP">not found in signal server</string>
     <string name="no_remIP">Remote address or port not set</string>
     <string name="no_stun">Stun server not avaiable</string>
+    <string name="getnames">Get Light Names from </string>
+    <string name="getcmds">Get commands from device</string>
+    <string name="no_licon_data">Project not loaded</string>
+    <string name="licon_data_got">Data received</string>
+    <string name="Zone">Zone</string>
+    <string name="Scene">Scene</string>
+    <string name="Scene_OFF">Scene OFF</string>
+    <string name="Get_Scene">Get Scene</string>
+    <string name="Triggering">Triggering</string>
+    <string name="Out">Out</string>
+    <string name="oON">ON</string>
+    <string name="oOFF">OFF</string>
+    <string name="oFrom">from</string>
+    <string name="oNow">now</string>
+    <string name="sec">sec</string>
+    <string name="get_cmd">Get command</string>
+    <string name="Module">Module</string>
+    <string name="Success">Success</string>
+    <string name="error">Error</string>
 </resources>

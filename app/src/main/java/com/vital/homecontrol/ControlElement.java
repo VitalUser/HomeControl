@@ -2,6 +2,7 @@ package com.vital.homecontrol;
 
 import android.content.res.Configuration;
 
+import java.util.ArrayList;
 import java.util.Locale;
 
 public class ControlElement {
@@ -12,11 +13,14 @@ public class ControlElement {
     private int p_Addr;
     private int numDev;
     private int cmdNum;
-    private int outMask;
     private int sensType;
     private int sensModel;
     private String text;
     private String upText;
+    private ArrayList<Integer> numAr;
+    private ArrayList<Integer> maskAr;
+    private ArrayList<Integer> tempNumAr;
+    private ArrayList<Integer> tempMaskAr;
 
     ControlElement(int num, String type){
         this.num=num;
@@ -25,15 +29,14 @@ public class ControlElement {
         this.p_Addr=0;
         this.numDev=0;
         this.cmdNum=0;
-        this.outMask=0;
         this.sensType=0;
         this.sensModel=0;
         this.text="";
         this.upText="";
-    }
-
-    public void setNum(int num){
-        this.num=num;
+        this.numAr = new ArrayList<>();
+        this.maskAr = new ArrayList<>();
+        this.tempNumAr = new ArrayList<>();
+        this.tempMaskAr = new ArrayList<>();
     }
 
     public void setText(String text){
@@ -42,10 +45,6 @@ public class ControlElement {
 
     public void setCmdNum(int cmdNum){
         this.cmdNum=cmdNum;
-    }
-
-    public void setOutMask(int outMask){
-        this.outMask=outMask;
     }
 
     public void setNumDev(int numDev){
@@ -116,9 +115,94 @@ public class ControlElement {
         return this.numDev;
     }
 
-    public int getOutMask(){
-        return this.outMask;
+    public int getMask(int numDev){
+        int ind = this.numAr.indexOf(numDev);
+        if (ind>=0){
+            return this.maskAr.get(ind);
+        }else{
+            return 0;
+        }
     }
+
+    public void setMask(int numDev, int mask){
+        int ind = this.numAr.indexOf(numDev);
+        if (ind>=0){
+            this.maskAr.set(ind, mask);
+        }else{
+            this.numAr.add(numDev);
+            this.maskAr.add(mask);
+        }
+    }
+
+    public void setTempMask(int numDev, int mask){
+        int ind = this.tempNumAr.indexOf(numDev);
+        if (ind>=0){
+            this.tempMaskAr.set(ind, mask);
+        }else{
+            this.tempNumAr.add(numDev);
+            this.tempMaskAr.add(mask);
+        }
+    }
+
+    public void saveMaskFromTemp(){
+        this.numAr.clear();
+        this.maskAr.clear();
+        for (int i = 0; i < this.tempNumAr.size(); i++) {
+            if (this.tempMaskAr.get(i)>0){
+                this.numAr.add(this.tempNumAr.get(i));
+                this.maskAr.add(this.tempMaskAr.get(i));
+            }
+        }
+    }
+
+    public void loadTempMask(){
+        this.tempNumAr.clear();
+        this.tempMaskAr.clear();
+        for (int i = 0; i < this.numAr.size(); i++) {
+            this.tempNumAr.add(this.numAr.get(i));
+            this.tempMaskAr.add(this.maskAr.get(i));
+        }
+    }
+
+    public int getTempMask(int numDev){
+        int ind = this.tempNumAr.indexOf(numDev);
+        if (ind>=0){
+            return this.tempMaskAr.get(ind);
+        }else{
+            return 0;
+        }
+    }
+
+    public void readMaskString(String source){
+        if (!source.equals("")){
+            if (source.contains(";")){
+                String[] arSrc = source.split(";");
+                for (String s : arSrc) {
+                    setMask(Integer.parseInt(s.substring(0, 2), 16), Integer.parseInt(s.substring(2, 4), 16));
+                }
+            }else{
+                setMask(this.numDev, Integer.parseInt(source));
+            }
+        }
+    }
+
+    public String getMaskString(){
+        StringBuilder msk = new StringBuilder();
+        for (int i = 0; i < this.numAr.size(); i++) {
+            if (this.maskAr.get(i)>0){
+                msk.append(String.format(Locale.getDefault(), "%02x%02x;", this.numAr.get(i), this.maskAr.get(i)));
+            }
+        }
+        return msk.toString();
+    }
+
+    public int getFirstNum(){
+        if (this.numAr.size()>0)
+            return this.numAr.get(0);
+        else
+            return 0;
+    }
+
 
     public int getSensType(){
         return this.sensType;

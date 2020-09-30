@@ -2,6 +2,7 @@ package com.vital.homecontrol;
 
 // https://startandroid.ru/ru/uroki/vse-uroki-spiskom/228-urok-125-viewpager.html
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,6 +13,8 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.InputType;
@@ -21,18 +24,28 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Properties;
 
 import static com.vital.homecontrol.MainActivity.CMD_ASK_STATISTIC;
 import static com.vital.homecontrol.MainActivity.CMD_MSG_ANALOG_DATA;
@@ -57,6 +70,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 //    static final String STATE_EXECDEVS = "ExecDevices";
 
     SharedPreferences prefs;
+    Properties cmds;
 
     private final String CELL_W = "CellWidth";
     private final String CELL_H = "CellHeight";
@@ -103,9 +117,9 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
     private final int M_REN_BTN     = 5;
     private final int M_DEL_BTN     = 6;
     private final int M_SET_CMD     = 7;
-    private final int M_SET_NDEV    = 8;
+//    private final int M_SET_NDEV    = 8;
     private final int M_SET_MASK    = 9;
-    private final int M_SET_CHNG    = 10;
+//    private final int M_SET_CHNG    = 10;
     private final int M_REN_SNS     = 11;
     private final int M_DEL_SNS     = 12;
     private final int M_TEMP_SNS    = 13;
@@ -143,6 +157,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
         }
         act = (MainActivity)getActivity();
         prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        cmds = new Properties();
 
         if (act!=null){
             LocalBroadcastManager.getInstance(act).registerReceiver(udpReciever, new IntentFilter(UDP_RCV));
@@ -164,7 +179,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
             controls.get(cind).setNumDev(act.readInt(BTN_NUMDEV+suff));
             controls.get(cind).setL_Addr(act.readInt(BTN_LA+suff));
             controls.get(cind).setP_Addr(act.readInt(BTN_PA+suff));
-            controls.get(cind).setOutMask(act.readInt(BTN_OUTMASK+suff));
+            controls.get(cind).readMaskString(act.readStr(BTN_OUTMASK+suff));
             controls.get(cind).setText(act.readStr(BTN_TEXT+suff));
             controls.get(cind).setSensType(act.readInt(SNS_TYPE+suff));
             controls.get(cind).setSensModel(act.readInt(SNS_MODEL+suff));
@@ -323,11 +338,14 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 //        TextView text = cellButton.findViewById(R.id.ctr_text);
 //        text.setText(controls.get(cInd).getText());
 
+        setButtonVisualState(btn, cInd);
+        /*
         int devInd = act.getDevIndex(controls.get(cInd).getNumDev());
         if (devInd>=0){
             int outState = act.execDevs.get(devInd).getOutState();
-            setButtonVisualState(btn, cInd, outState);
         }
+
+         */
 
         return cellButton;
     }
@@ -409,18 +427,18 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 return;
             case IS_BUTTON:
                 int num = (int) v.getTag(R.id.ctr_num);
+                int cInd = getControlIndexByNum(num);
                 String txt = "";
 //                    menuInflater.inflate(R.menu.btn_context_menu, menu);
                 menu.add(0, M_REN_BTN*10000+num, 1, getString(R.string.msg_rename));
                 menu.add(0, M_SET_CMD*10000+num, 2, getString(R.string.set_cmd_num));
                 if (act.execDevs.size()>0){
-                    menu.add(0, M_SET_NDEV*10000+num, 3, getString(R.string.set_dev_num));
+//                    menu.add(0, M_SET_NDEV*10000+num, 3, getString(R.string.set_dev_num));
                     menu.add(0, M_SET_MASK*10000+num, 4, getString(R.string.set_outmask));
-                    menu.add(0, M_SET_CHNG*10000+num, 5, getString(R.string.set_last_change));
+//                    menu.add(0, M_SET_CHNG*10000+num, 5, getString(R.string.set_last_change));
                 }
                 menu.add(0, M_DEL_BTN*10000+num, 9, getString(R.string.btn_item_Del));
                 menu.add(0, M_CANCEL*10000+num, 10, getString(R.string.cancel));
-                int cInd = getControlIndexByNum(num);
                 if (cInd>=0){
                     txt = controls.get(cInd).getText();
                 }
@@ -512,6 +530,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
             orientTag = BTN_LA;
         }
         int freeNum;
+        String txt;
         int gotItemID = item.getItemId();
         int mItem = gotItemID/10000;
         final int row = (gotItemID % 10000)/100 ;
@@ -520,7 +539,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
         final int cInd = getControlIndexByNum(btnNum);
         final String suff = String.format(Locale.getDefault(), "N%02d%03d", mPage, btnNum);
 //        final int btnNum = gotItemID % 1000;
-        AlertDialog.Builder dlg;
+        final AlertDialog.Builder dlg;
 
         switch (mItem){
 
@@ -633,20 +652,37 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                     final EditText input = new EditText(getActivity());
                     input.setSelectAllOnFocus(true);
                     String srcText = controls.get(cInd).getText();
-                    int dNum = controls.get(cInd).getNumDev();
-                    int msk = controls.get(cInd).getOutMask();
-                    if ((srcText.equals(""))&&(dNum>0)&&(msk>0)){
-                        int mskind = -1;
-                        while(msk>0){
-                            msk = msk /2;
-                            mskind++;
-                        }
-                        int di = act.getDevIndex(dNum);
-                        if (di>=0){
-                            srcText = act.execDevs.get(di).getLampText(mskind);
-                        }
+//                    int di = 0;
+                    /*
+                    int dNum = 0;
+                    while ((di<act.execDevs.size())&&(controls.get(cInd).getMask(act.execDevs.get(di).getDevNum())==0)){
+                        di++;
                     }
+
+                     */
+                    int dNum = controls.get(cInd).getFirstNum();
+                    if (dNum>0){
+//                        dNum = act.execDevs.get(di).getDevNum();
+                        int msk = controls.get(cInd).getMask(dNum);
+                        if ((srcText.equals(""))&&(msk>0)){
+                            int mskind = -1;
+                            while(msk>0){
+                                msk = msk /2;
+                                mskind++;
+                            }
+                            int di = act.getDevIndex(dNum);
+                            if (di>=0){
+                                srcText = act.execDevs.get(di).getLampText(mskind);
+                            }
+                        }
+
+                    }
+
                     input.setText(srcText);
+                    input.setInputType(InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+//                    InputMethodManager imm = (InputMethodManager) dlg.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+//                    imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+
                     dlg.setView(input);
                     dlg.setTitle(R.string.msg_rename);
                     dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
@@ -665,7 +701,9 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                             dialogInterface.cancel();
                         }
                     });
-                    dlg.show();
+//                    input.setFocusable(true);
+                    Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+
                 }
                 return true;
 
@@ -695,24 +733,69 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 
             case M_SET_CMD:
 //                cInd = getControlIndexByNum(btnNum);
-                dlg = new AlertDialog.Builder(getActivity());
-                dlg.setTitle(getString(R.string.enter_cmd));
-                final EditText cmdNum = new EditText(getActivity());
-                cmdNum.setSelectAllOnFocus(true);
-                cmdNum.setInputType(InputType.TYPE_CLASS_NUMBER);
-                String txt = String.valueOf(controls.get(cInd).getCmdNum());
-                cmdNum.setText(txt);
-                dlg.setView(cmdNum);
+                int cmdCount = 0;
+                String cmdf = prefs.getString("key_commands", "");
+                if (!Objects.equals(cmdf, "")){
+                    File fileC = new File(getActivity().getApplicationContext().getFilesDir().toString(), cmdf);
+                    if (fileC.exists()){
+                        try {
+                            cmds.load(new FileInputStream(fileC));
+                            cmdCount = cmds.size();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
 
-                dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
-//                        String strBtnNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, btnNum);
-                        act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
                     }
-                });
 
+                }
+                dlg = new AlertDialog.Builder(getActivity());
+                if (cmdCount>0){
+                    dlg.setTitle(getString(R.string.get_cmd));
+                    ListView lv = new ListView(getActivity());
+
+                    String[] inList = cmds.stringPropertyNames().toArray(new String[0]);
+                    final ArrayList<String> comList = new ArrayList<>(Arrays.asList(inList));
+                    final CmdAdapter adapter;
+
+                    Collections.sort(comList);
+                    adapter = new CmdAdapter(getActivity().getApplicationContext(), R.layout.cmd_list_item, comList);
+                    lv.setAdapter(adapter);
+                    adapter.setSelect(comList.indexOf(String.format(Locale.getDefault(), "%05d", controls.get(cInd).getCmdNum())));
+                    dlg.setView(lv);
+                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            controls.get(cInd).setCmdNum(Integer.parseInt(comList.get(adapter.getSelect())));
+                            act.saveInt(BTN_CMD + suff, Integer.parseInt(comList.get(adapter.getSelect())));
+                        }
+                    });
+
+                    lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                        @Override
+                        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                            adapter.setSelect(position);
+                            adapter.notifyDataSetChanged();
+                        }
+                    });
+
+
+
+                }else{
+                    dlg.setTitle(getString(R.string.enter_cmd));
+                    final EditText cmdNum = new EditText(getActivity());
+                    cmdNum.setSelectAllOnFocus(true);
+                    cmdNum.setInputType(InputType.TYPE_CLASS_NUMBER);
+                    txt = String.valueOf(controls.get(cInd).getCmdNum());
+                    cmdNum.setText(txt);
+                    dlg.setView(cmdNum);
+                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
+                            act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
+                        }
+                    });
+                }
 
                 dlg.setNegativeButton(getText(R.string.cancel), new DialogInterface.OnClickListener() {
                     @Override
@@ -720,102 +803,22 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                         dialogInterface.cancel();
                     }
                 });
-                dlg.show();
+
+                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
 
             return true;
 
-            case M_SET_NDEV:
-//                cInd = getControlIndexByNum(btnNum);
-                dlg = new AlertDialog.Builder(getActivity());
-                final String[] devNums = new String[act.execDevs.size()];
-                for (int i = 0; i <devNums.length ; i++) {
-                    devNums[i] = String.valueOf(act.execDevs.get(i).getDevNum());
-                }
-                txt = getString(R.string.set_dev_num)+ " ("+controls.get(cInd).getNumDev() + ")";
-                dlg.setTitle(txt);
-                dlg.setItems(devNums, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-//                        int num = controls.get(cInd).getNum();
-//                        String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
-                        int dNum = Integer.parseInt(devNums[i]);
-                        controls.get(cInd).setNumDev(dNum);
-                        act.saveInt(BTN_NUMDEV+suff, dNum);
-
-                        int num = act.getDevIndex(dNum);
-                        if (num>=0){
-                            updateButtonsState(dNum, act.execDevs.get(num).getOutState());
-                        }
-
-                    }
-                });
-                dlg.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.cancel();
-                    }
-                });
-                dlg.show();
-                return true;
 
             case M_SET_MASK:
-//                cInd = getControlIndexByNum(btnNum);
                 dlg = new AlertDialog.Builder(getActivity());
-                int dNum = controls.get(cInd).getNumDev();
-                String title = getString(R.string.set_outmask);
-                title = title + " " + (dNum>0?getString(R.string.for_device)+" "+dNum : getString(R.string.dev_not_assigned));
-                dlg.setTitle(title);
-//                int ms = controls.get(cInd).getOutMask();
-                final String[] lamps;
-                int di = act.getDevIndex(dNum);
-                if (di>=0){
-                    lamps = new String[act.execDevs.get(di).getOutCount()];
-                    for (int i = 0; i <lamps.length ; i++) {
-                        String lItem = act.execDevs.get(di).getLampText(i);
-                        if (lItem.equals("")){
-                            lamps[i] = getString(R.string.lightgroup)+" "+(i+1);
-                        }else{
-                            lamps[i] = lItem;
-                        }
-                    }
-                }else{
-                    lamps = new String[8];
-                    for (int i = 0; i <lamps.length ; i++) {
-                        lamps[i] = getString(R.string.lightgroup)+" "+(i+1);
-                    }
-                }
-
-                final boolean[] mChecked = new boolean[lamps.length];
-                for (int i = 0; i <lamps.length ; i++) {
-                    mChecked[i] = ((1<<i)&controls.get(cInd).getOutMask())>0;
-                }
-
-                dlg.setMultiChoiceItems(lamps, mChecked, new DialogInterface.OnMultiChoiceClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i, boolean b) {
-                        mChecked[i] = b;
-                    }
-                });
 
                 dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
+                        controls.get(cInd).saveMaskFromTemp();
                         int num = controls.get(cInd).getNum();
                         String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
-
-                        int ms = 0;
-                        for (int j = 0; j <mChecked.length ; j++) {
-                            if (mChecked[j]){
-                                ms = ms + (1<<j);
-                            }
-                        }
-                        controls.get(cInd).setOutMask(ms);
-                        act.saveInt(BTN_OUTMASK+textNum, ms);
-
-                        num = act.getDevIndex(controls.get(cInd).getNumDev());
-                        if (num>=0){
-                            updateButtonsState(controls.get(cInd).getNumDev(), act.execDevs.get(num).getOutState());
-                        }
+                        act.saveStr(BTN_OUTMASK+textNum, controls.get(cInd).getMaskString());
                     }
                 });
 
@@ -825,76 +828,79 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                         dialogInterface.cancel();
                     }
                 });
-                dlg.show();
+
+                View view = getLayoutInflater().inflate(R.layout.layout_mask_dialog, vGroup, false);
+                dlg.setView(view);
+
+                final Spinner sp = view.findViewById(R.id.mask_spinner);
+                String[] modules = new String[act.execDevs.size()];
+                for (int i = 0; i < act.execDevs.size(); i++) {
+                    modules[i]= getText(R.string.Module) +" : " + act.execDevs.get(i).getDevNum();
+                }
+                final ArrayAdapter<String> spadapter = new ArrayAdapter<>(getActivity(), android.R.layout.simple_spinner_item, modules);
+                spadapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                sp.setAdapter(spadapter);
+                sp.setSelection(act.getDevIndex(controls.get(cInd).getFirstNum()));
+
+                final ArrayList<String> lamps = new ArrayList<>();
+                final ListView lv = view.findViewById(R.id.mask_list);
+                lv.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+                lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                        int tmask = 0;
+                        for (int i = 0; i <lamps.size() ; i++) {
+                            if (lv.isItemChecked(i)){
+                                tmask = tmask + (1<<i);
+                            }
+                        }
+                        int numInd = sp.getSelectedItemPosition();
+                        int num = act.execDevs.get(numInd).getDevNum();
+                        controls.get(cInd).setTempMask(num, tmask);
+                    }
+                });
+
+
+                final ArrayAdapter<String> lvadapter = new ArrayAdapter<>(Objects.requireNonNull(getActivity()), android.R.layout.simple_list_item_multiple_choice, lamps);
+                lv.setAdapter(lvadapter);
+                controls.get(cInd).loadTempMask();
+
+                sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                        lamps.clear();
+                        for (int i = 0; i <act.execDevs.get(position).getOutCount() ; i++) {
+                            String lItem = act.execDevs.get(position).getLampText(i);
+                            if (lItem.equals("")){
+                                lamps.add(getString(R.string.lightgroup)+" "+(i+1));
+                            }else{
+                                lamps.add(lItem);
+                            }
+                        }
+                        lvadapter.notifyDataSetChanged();
+
+                        for (int i = 0; i <lamps.size() ; i++) {
+//                            boolean bl = ((1<<i)&controls.get(cInd).getOutMask())>0;
+                            int num = act.execDevs.get(position).getDevNum();
+                            boolean bl = ((1<<i)&controls.get(cInd).getTempMask(num))>0;
+                            lv.setItemChecked(i, bl);
+                        }
+
+                    }
+
+                    @Override
+                    public void onNothingSelected(AdapterView<?> parent) {
+
+                    }
+                });
+
+
+
+                final AlertDialog dialog = dlg.create();
+                dialog.show();
 
                 return true;
 
-
-            case M_SET_CHNG:
-                dlg = new AlertDialog.Builder(getActivity());
-//                cInd = getControlIndexByNum(btnNum);
-                int numDev = act.getDevNumChange();
-                int outMask = act.getMaskChange();
-                int lastCmd = act.getLastCommand();
-
-                LayoutInflater inflater = getLayoutInflater();
-                View v = inflater.inflate(R.layout.last_change_getter, vGroup, false);
-
-                TextView cmdTitle = v.findViewById(R.id.cmdN_text);
-                txt = getText(R.string.set_cmd_num) + " (" + controls.get(cInd).getCmdNum() + ")";
-                cmdTitle.setText(txt);
-                final EditText cmdN = v.findViewById(R.id.cmdN_edit);
-                cmdN.setSelectAllOnFocus(true);
-                txt = Integer.toString(lastCmd);
-                cmdN.setText(txt);
-
-                TextView ndevTitle = v.findViewById(R.id.devN_text);
-                txt = getText(R.string.set_dev_num) + " (" + controls.get(cInd).getNumDev() + ")";
-                ndevTitle.setText(txt);
-                final EditText devN = v.findViewById(R.id.devN_edit);
-                devN.setSelectAllOnFocus(true);
-                txt = Integer.toString(numDev);
-                devN.setText(txt);
-
-                TextView maskTitle = v.findViewById(R.id.mask_text);
-                txt = getText(R.string.set_outmask) + " (" + controls.get(cInd).getOutMask() + ")";
-                maskTitle.setText(txt);
-                final EditText msk = v.findViewById(R.id.mask_edit);
-                msk.setSelectAllOnFocus(true);
-                txt = Integer.toString(outMask);
-                msk.setText(txt);
-
-                dlg.setView(v);
-                dlg.setTitle(controls.get(cInd).getText());
-                dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        int numDev = Integer.parseInt(devN.getText().toString()) ;
-                        int lastCmd = Integer.parseInt(cmdN.getText().toString()) ;
-                        int outMask = Integer.parseInt(msk.getText().toString()) ;
-                        controls.get(cInd).setNumDev(numDev);
-                        controls.get(cInd).setCmdNum(lastCmd);
-                        controls.get(cInd).setOutMask(outMask);
-//                        String strBtnNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, btnNum);
-                        act.saveInt(BTN_NUMDEV + suff, numDev);
-                        act.saveInt(BTN_OUTMASK + suff, outMask);
-                        act.saveInt(BTN_CMD + suff, lastCmd);
-
-                        int dInd = act.getDevIndex(numDev);
-                        if (dInd>=0){
-                            updateButtonsState(numDev, act.execDevs.get(dInd).getOutState());
-                        }
-                    }
-                });
-                dlg.setNegativeButton(getText(R.string.cancel), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.cancel();
-                    }
-                });
-                dlg.show();
-
-            return true;
 
 //----------------------------------------------------------------IS SENSOR---------------------------------------------------------------------
 
@@ -923,7 +929,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                         dialogInterface.cancel();
                     }
                 });
-                dlg.show();
+                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
 
                 return true;
 
@@ -981,7 +987,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
             case M_SHOW_STAT:
 //                cInd = getControlIndexByNum(btnNum);
                 int typ = controls.get(cInd).getSensType();
-                dNum = controls.get(cInd).getNumDev();
+                int dNum = controls.get(cInd).getNumDev();
                 int model = controls.get(cInd).getSensModel();
                 byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
                 if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
@@ -1078,8 +1084,8 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
     }
 
     private void parceFromDevice(byte[] buf){
-        int devN = buf[4]&0xFF;
-        int outState = buf[5]&0xFF;
+//        int devN = buf[4]&0xFF;
+//        int outState = buf[5]&0xFF;
         int cmd = buf[3]&0xFF;
 //        int orientation = act.getResources().getConfiguration().orientation;
 //        boolean found;
@@ -1109,7 +1115,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
             case MSG_OUT_STATE:
 
             case MSG_STATE:
-                updateButtonsState(devN, outState);
+                updateButtonsState();
                 break;
 
             case MSG_DEVICE_KIND:
@@ -1148,7 +1154,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 
 
 
-    private void updateButtonsState(int numDev, int outState){
+    private void updateButtonsState(){
         int rows = mTable.getChildCount();
         int orientation = act.getResources().getConfiguration().orientation;
         for (int row = 0; row <rows ; row++) {
@@ -1160,10 +1166,8 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 if (ctrlView !=null){
                     int cInd = getControlIndexByLocation(orientation, String.format(Locale.getDefault(), "%02d%02d", row+1, col+1));
                     if (cInd>=0){
-                        if (controls.get(cInd).getNumDev()==numDev){
-                            View btn = ctrlView.findViewById(R.id.ctr_button);
-                            setButtonVisualState((Button) btn, cInd, outState);
-                        }
+                        View btn = ctrlView.findViewById(R.id.ctr_button);
+                        setButtonVisualState((Button) btn, cInd);
                     }
                 }
             }
@@ -1198,10 +1202,18 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 
 
 
-    private void setButtonVisualState(Button btn, int controlIndex, int outState){
+    private void setButtonVisualState(Button btn, int controlIndex){
         if (btn!=null){
-            int mask = controls.get(controlIndex).getOutMask();
-            if ((mask&outState)>0){
+            boolean activeState = false;
+            for (int i = 0; i < act.execDevs.size(); i++) {
+                int numDev = act.execDevs.get(i).getDevNum();
+                int outState = act.execDevs.get(i).getOutState();
+                int mask = controls.get(controlIndex).getMask(numDev);
+                if ((mask & outState)>0)
+                    activeState = true;
+
+            }
+            if (activeState){
                 btn.setBackgroundResource(R.drawable.sq_btn_activ_color);
             }else{
                 btn.setBackgroundResource(R.drawable.sq_btn_color);
@@ -1266,6 +1278,317 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
         }
         return (float) 0;
     }
+
+    private class CmdAdapter extends ArrayAdapter<String>{
+
+        private List<String> commands;
+        private int selection;
+
+        public CmdAdapter(@NonNull Context context, int resource, @NonNull List<String> objects) {
+            super(context, resource, objects);
+            commands = objects;
+            selection = -1;
+
+        }
+
+
+        @NonNull
+        @Override
+        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+            LayoutInflater inflater = getLayoutInflater();
+            @SuppressLint("ViewHolder") View item = inflater.inflate(R.layout.cmd_list_item, parent, false);
+            TextView tcmd = item.findViewById(R.id.cmd_id);
+            tcmd.setText(String.valueOf(Integer.parseInt(commands.get(position))));
+            TextView tv = item.findViewById(R.id.cmd_content);
+            if (position==this.selection){
+                tv.setTextColor(getResources().getColor(R.color.cl_Green) );
+            }
+            if (cmds.size()>0){
+                StringBuilder st = new StringBuilder(cmds.getProperty(commands.get(position)));
+                String[] arst = st.toString().split(";");
+                st = new StringBuilder();
+                for (int i = 0; i < arst.length-1; i++) {
+                    st.append(getCmdText(arst[i])).append("\n");
+                }
+                st.append(getCmdText(arst[arst.length - 1]));
+                tv.setText(st.toString());
+            }
+            return item;
+        }
+
+
+
+        private String getCmdText(String cmd){
+            int mod = Integer.parseInt(cmd.substring(0, 2), 16);
+            int dind = act.getDevIndex(mod);
+            int content = Integer.parseInt(cmd.substring(2, 4), 16);
+            int par1 = Integer.parseInt(cmd.substring(4, 6), 16);
+            int par2 = Integer.parseInt(cmd.substring(6, 8), 16);
+            String st = "";
+            String lt;
+            switch (content & 0x0C){
+                case 0x04:
+                    st = st + getText(R.string.Zone) + " " +par1;
+                    switch (content & 0x03){
+                        case 0x01:
+                            st = st + "; " +getText(R.string.Scene)+" -";
+                            break;
+                        case 0x02:
+                            st = st + "; "+getText(R.string.Scene)+" +";
+                            break;
+                        case 0x03:
+                            st = st + "; "+getText(R.string.Scene_OFF);
+                            break;
+                    }
+                    break;
+                case 0x0C:
+                    st = st + getText(R.string.Get_Scene) + " " +par2 + "; " + getText(R.string.Zone) + " " +par1;
+                    break;
+                case 0x00:
+                    if (((content & 0x03)==0x03)&&(par1==0)){
+                        if (dind>=0){
+                            lt = act.execDevs.get(dind).getLampText((content >> 4)-1);
+                        }else{
+                            lt = "";
+                        }
+                        if (lt.equals("")) lt = getString(R.string.lightgroup)+" "+((content >> 4))+" (M"+mod+")";
+                        st = st + getText(R.string.Triggering) + " " + lt;
+
+                    }else{
+                        if (((content & 0x03)>0)&&((content & 0xF0)>0)){
+                            if (dind>=0){
+                                lt = act.execDevs.get(dind).getLampText((content >> 4)-1);
+                            }else{
+                                lt = "";
+                            }
+                            if (lt.equals("")) lt = getString(R.string.lightgroup)+" "+((content >> 4))+" (M"+mod+")";
+                            st = st + lt;
+                        }
+                        if ((content & 0x02)==0x02){
+                            st = st + " " + getText(R.string.oON) + " ";
+                            if ((par1 >> 4)>0){
+                                st = st + getText(R.string.oFrom) + " " + ((par1 >> 4) * par2) + getText(R.string.sec) + "; ";
+                            }else{
+                                st = st + getText(R.string.oNow) +"; ";
+                            }
+                        }
+                        if ((content & 0x01)==0x01){
+                            st = st +  " " + getText(R.string.oOFF) + " ";
+                            if ((par1 & 0x0F)>0){
+                                st = st + getText(R.string.oFrom) + " " + ((par1 & 0x0F) * par2) + getText(R.string.sec);
+                            }else{
+                                st = st + getText(R.string.oNow);
+                            }
+                        }
+                    }
+            }
+
+            return st;
+
+        }
+
+        public void setSelect(int position){
+            this.selection = position;
+        }
+
+        public int getSelect(){
+            return this.selection;
+        }
+    }
+
+//******************************************************* old version *************************************************************************
+
+//---------------------------------------- dialog with multichoice
+
+//                String title = getString(R.string.set_outmask);
+//                title = title + " " + (dNum>0?getString(R.string.for_device)+" "+dNum : getString(R.string.dev_not_assigned));
+//                dlg.setTitle(title);
+
+                /*
+                String[] modules = new String[act.execDevs.size()];
+                for (int i = 0; i < act.execDevs.size(); i++) {
+                    modules[i]= getText(R.string.Module) +" : " + String.valueOf(act.execDevs.get(i).getDevNum());
+                }
+                Spinner sp = new Spinner(getActivity());
+                ArrayAdapter<String> spadapter = new ArrayAdapter<>(getActivity(), android.R.layout.simple_spinner_item, modules);
+                spadapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                sp.setAdapter(spadapter);
+                sp.setSelection(di);
+                dlg.setView(sp);
+
+                 */
+
+
+                /*
+                final String[] lamps;
+                if (di>=0){
+                    lamps = new String[act.execDevs.get(di).getOutCount()];
+                    for (int i = 0; i <lamps.length ; i++) {
+                        String lItem = act.execDevs.get(di).getLampText(i);
+                        if (lItem.equals("")){
+                            lamps[i] = getString(R.string.lightgroup)+" "+(i+1);
+                        }else{
+                            lamps[i] = lItem;
+                        }
+                    }
+                }else{
+                    lamps = new String[8];
+                    for (int i = 0; i <lamps.length ; i++) {
+                        lamps[i] = getString(R.string.lightgroup)+" "+(i+1);
+                    }
+                }
+
+                final boolean[] mChecked = new boolean[lamps.length];
+                for (int i = 0; i <lamps.length ; i++) {
+                    mChecked[i] = ((1<<i)&controls.get(cInd).getOutMask())>0;
+                }
+
+                dlg.setMultiChoiceItems(lamps, mChecked, new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i, boolean b) {
+                        mChecked[i] = b;
+                    }
+                });
+
+                 */
+
+                /*
+                for (int i = 0; i <lvadapter.getCount() ; i++) {
+                    lv.setItemChecked(i, ((1<<i)&controls.get(cInd).getOutMask())>0);
+                }
+
+                 */
+
+//----------------------------------------positive button for multichoice dialog
+                        /*
+                        int num = controls.get(cInd).getNum();
+                        String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
+
+                        int ms = 0;
+                        for (int j = 0; j <mChecked.length ; j++) {
+                            if (mChecked[j]){
+                                ms = ms + (1<<j);
+                            }
+                        }
+                        controls.get(cInd).setOutMask(ms);
+                        act.saveInt(BTN_OUTMASK+textNum, ms);
+
+                        num = act.getDevIndex(controls.get(cInd).getNumDev());
+                        if (num>=0){
+                            updateButtonsState(controls.get(cInd).getNumDev(), act.execDevs.get(num).getOutState());
+                        }
+
+                         */
+
+//----------------------------------------set last change
+            /*
+                case M_SET_CHNG:
+                dlg = new AlertDialog.Builder(getActivity());
+                int numDev = act.getDevNumChange();
+                int outMask = act.getMaskChange();
+                int lastCmd = act.getLastCommand();
+
+                LayoutInflater inflater = getLayoutInflater();
+                View v = inflater.inflate(R.layout.last_change_getter, vGroup, false);
+
+                TextView cmdTitle = v.findViewById(R.id.cmdN_text);
+                txt = getText(R.string.set_cmd_num) + " (" + controls.get(cInd).getCmdNum() + ")";
+                cmdTitle.setText(txt);
+                final EditText cmdN = v.findViewById(R.id.cmdN_edit);
+                cmdN.setSelectAllOnFocus(true);
+                txt = Integer.toString(lastCmd);
+                cmdN.setText(txt);
+
+                TextView ndevTitle = v.findViewById(R.id.devN_text);
+                txt = getText(R.string.set_dev_num) + " (" + controls.get(cInd).getNumDev() + ")";
+                ndevTitle.setText(txt);
+                final EditText devN = v.findViewById(R.id.devN_edit);
+                devN.setSelectAllOnFocus(true);
+                txt = Integer.toString(numDev);
+                devN.setText(txt);
+
+                TextView maskTitle = v.findViewById(R.id.mask_text);
+                txt = getText(R.string.set_outmask) + " (" + controls.get(cInd).getOutMask() + ")";
+                maskTitle.setText(txt);
+                final EditText msk = v.findViewById(R.id.mask_edit);
+                msk.setSelectAllOnFocus(true);
+                txt = Integer.toString(outMask);
+                msk.setText(txt);
+
+                dlg.setView(v);
+                dlg.setTitle(controls.get(cInd).getText());
+                dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        int numDev = Integer.parseInt(devN.getText().toString()) ;
+                        int lastCmd = Integer.parseInt(cmdN.getText().toString()) ;
+                        int outMask = Integer.parseInt(msk.getText().toString()) ;
+                        controls.get(cInd).setNumDev(numDev);
+                        controls.get(cInd).setMask(numDev, outMask);
+                        act.saveInt(BTN_NUMDEV + suff, numDev);
+                        act.saveInt(BTN_OUTMASK + suff, outMask);
+                        act.saveInt(BTN_CMD + suff, lastCmd);
+
+                        int dInd = act.getDevIndex(numDev);
+                        if (dInd>=0){
+                            updateButtonsState(numDev, act.execDevs.get(dInd).getOutState());
+                        }
+                    }
+                });
+                dlg.setNegativeButton(getText(R.string.cancel), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.cancel();
+                    }
+                });
+                dlg.show();
+
+            return true;
+
+             */
+
+//----------------------------------------set num dev
+            /*
+            case M_SET_NDEV:
+                dlg = new AlertDialog.Builder(getActivity());
+                final String[] devNums = new String[act.execDevs.size()];
+                for (int i = 0; i <devNums.length ; i++) {
+                    devNums[i] = String.valueOf(act.execDevs.get(i).getDevNum());
+                }
+                txt = getString(R.string.set_dev_num)+ " ("+controls.get(cInd).getNumDev() + ")";
+                dlg.setTitle(txt);
+                dlg.setItems(devNums, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        int dNum = Integer.parseInt(devNums[i]);
+                        controls.get(cInd).setNumDev(dNum);
+                        act.saveInt(BTN_NUMDEV+suff, dNum);
+
+                        int num = act.getDevIndex(dNum);
+                        if (num>=0){
+                            updateButtonsState();
+                        }
+
+                    }
+                });
+                dlg.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        dialogInterface.cancel();
+                    }
+                });
+                dlg.show();
+                return true;
+
+             */
+
+
+//----------------------------------------
+//----------------------------------------
+//----------------------------------------
+//----------------------------------------
+
+
 
 
 }

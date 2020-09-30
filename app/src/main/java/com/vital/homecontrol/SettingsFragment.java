@@ -36,7 +36,7 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference port = (EditTextPreference) findPreference("key_port");
         port.setSummary(port.getText());
 
-        EditTextPreference serial = (EditTextPreference) findPreference("key_serial");
+        SerialDialog serial = (SerialDialog) findPreference("key_set_serial");
         serial.setSummary(serial.getText());
 
         SwitchPreference cb_static = (SwitchPreference)findPreference("id_cb_StaticIP");
@@ -64,6 +64,7 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference btnPadding = (EditTextPreference) findPreference("key_button_padding");
         btnPadding.setSummary(btnPadding.getText());
 
+        /*
         ListPreference names = (ListPreference) findPreference("key_names");
         String defName = PreferenceManager.getDefaultSharedPreferences(getActivity()).getString("key_names", "");
         String namesPath = Environment.getExternalStorageDirectory().toString() + "/HomeControl/Names";
@@ -91,6 +92,8 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
             names.setEnabled(false);
         }
 
+         */
+
     }
 
 
@@ -101,7 +104,7 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference remport = (EditTextPreference) findPreference("key_port");
         IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
         IPpickerPreference signaliPpicker = (IPpickerPreference) findPreference("key_signalIP");
-        EditTextPreference serial = (EditTextPreference) findPreference("key_serial");
+        SerialDialog serial = (SerialDialog) findPreference("key_set_serial");
         switch (s){
             case "key_udppass":
                 EditTextPreference pass = (EditTextPreference) findPreference(s);
@@ -121,12 +124,12 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
                 signaliPpicker.setEnabled(!cb_static.isChecked());
                 serial.setEnabled(!cb_static.isChecked());
                 break;
-            case "key_serial":
+            case "key_set_serial":
                 serial.setSummary(serial.getText());
                 break;
 
             case "key_theme":
-            case "key_names":
+//            case "key_names":
                 ListPreference theme = (ListPreference) findPreference(s);
                 theme.setSummary(theme.getEntry());
                 break;

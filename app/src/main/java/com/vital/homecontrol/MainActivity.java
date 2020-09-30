@@ -20,6 +20,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
+import android.preference.DialogPreference;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
@@ -28,39 +29,56 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
 import android.support.design.widget.TabLayout;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static java.lang.Thread.currentThread;
 import static java.lang.Thread.sleep;
@@ -73,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private Config config;
     private Properties namesFile;
     private String configPath;
-    public String namesFileName;
+//    public String namesFileName;
     SharedPreferences prefs;
 
     static final String ROOM_NAME_KEY = "RoomName";
@@ -85,11 +103,17 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final String STATE_EXECDEVS = "ExecDevices";
     static final String STATE_SENSORS = "Sensors";
     static final String STATE_DESTIP = "DestIP";
+    static final String STATE_LICONIP = "LiConIP";
     static final String STATE_REMOTE = "Remote";
     static final String STATE_LASTSMD = "LastDevNum";
     static final String STATE_LASTCHNG = "LastChange";
 
     static final int STUN_RESPONCE = 0x0101;
+    static final byte ASK_FOR_DATA = 0x41;
+    static final byte DATA_NOT_LOAD = 0x42;
+//    static final byte DATA_SUCSESS = 0x43;
+    static final byte LICON_NAMES = 0x45;
+//    static final byte CMD_DATA = 0x46;
 
     static final int ASK_IP                     =  0x01;
     static final int BREAK_LINK                 =  0x02;
@@ -117,16 +141,24 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_FOUND_DEV              =  0x1E;
     static final int MSG_W_ERROR                =  0x1F;
     static final int CMD_SET_TIME               =  0x31;
+    static final int ASK_SERIAL                 =  0x32;
+
+
+    static final int MSG_SERIAL                 =  0x4E;
+    static final int Msg_LiconIP 	    	    =  0x55;
+
 
     static final int MSG_RCV_OK                 =  0xA5;
     static final int CMD_SEND_COMMAND           =  0x88;
 
     static final int MSG_STATE                  =  0x61;
     static final int MSG_OUT_STATE              =  0x64;
+    static final int MSG_EEP_DATA               =  0x65;
     static final int MSG_SENSOR_STATE           =  0x67;
     static final int MSG_DEV_TYPE               =  0x6E;
 
     static final int CMD_ASK_STATE              =  0x91;
+    static final int CMD_ASK_MEM                =  0x92;
     static final int CMD_ASK_SENSOR_STATE       =  0x97;
     static final int CMD_ASK_TYPE               =  0x9E;
 
@@ -153,6 +185,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_NO_HOST                =  0x05;
     static final int MSG_NO_STUN_ANSWER         =  0x06;
     static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
+    static final int MSG_END_GET_COMMAND        =  0x08;
 
 
     ViewPager viewPager;
@@ -166,6 +199,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     TextView sensCountText;
     TextView fText;
     UDPserver sUDP;
+
+
 //    Timer timer;
 //    TimerTask task;
 
@@ -191,9 +226,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 //    private int signalPort = 16133;
     public int defaultPort = 55555;
     public String devLocalIP;
+    private String liconIP = "";
     public boolean connected;
     private int pass;
     private int serial = 0;
+    private int curserial;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
     public int lastCommand = 0;
@@ -201,6 +238,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private String theme;
     public String storageDir;
     private int timeout;
+    private boolean sucsessReadMem;
+    private String liconName = "";
 //    public boolean cnf;
 
 
@@ -293,7 +332,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         signalIP = prefs.getString("key_signalIP", "0.0.0.0");
         staticIP = prefs.getBoolean("id_cb_StaticIP", false);
         remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
-        serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_serial", "0")));
+        serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_set_serial", "0")));
         pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
         workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
         timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
@@ -315,8 +354,18 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             canWrite =true;
         }
 
-        namesFileName = prefs.getString("key_names", "");
         namesFile = new Properties();
+        String namesFileName = prefs.getString("key_names", "");
+        if (!Objects.equals(namesFileName, "")){
+            File fileN = new File(this.getFilesDir().toString(), namesFileName);
+            if (fileN.exists()){
+                try {
+                    namesFile.load(new FileInputStream(fileN));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
         if (canWrite){
             File file = new File(storageDir, "");
@@ -339,28 +388,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     Log.i(TAG, "directory "+configPath+" not created, save to FilesDir");
                 }
             }
-            file = new File(storageDir+"/Names", "");
-            if (!file.exists()){
-                if (!file.mkdirs()){
-                    Toast.makeText(this, "Unable create Names directory", Toast.LENGTH_SHORT).show();
-                    Log.i(TAG, "directory "+ namesFileName +" not created");
-                }
-            }
             file = new File(storageDir+"/Preferences", "");
             if (!file.exists()){
                 if (!file.mkdirs()){
 //                    Toast.makeText(this, "Unable create Names directory", Toast.LENGTH_SHORT).show();
                     Log.i(TAG, "directory /Preferences not created");
-                }
-            }
-            if (!namesFileName.equals("")){
-                file = new File(namesFileName, "");
-                if (file.exists()){
-                    try {
-                        namesFile.load(new FileInputStream(file));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
                 }
             }
 
@@ -409,6 +441,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         outState.putParcelableArrayList(STATE_SENSORS, (ArrayList<? extends Parcelable>) sensors);
         outState.putInt(STATE_LASTSMD, lastCommand);
         outState.putInt(STATE_LASTCHNG, changedState);
+        outState.putString(STATE_LICONIP, liconIP);
         super.onSaveInstanceState(outState);
     }
 
@@ -423,6 +456,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         sensors = savedInstanceState.getParcelableArrayList(STATE_SENSORS);
         lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
         changedState = savedInstanceState.getInt(STATE_LASTCHNG);
+        liconIP = savedInstanceState.getString(STATE_LICONIP);
     }
 
     @Override
@@ -481,6 +515,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean("id_cb_WorkWiFi",workWiFi);
         editor.apply();
+        clonePrefs();
         Log.i(TAG, " onDestroy in MainActivity ");
         super.onDestroy();
     }
@@ -505,23 +540,41 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 return true;
 
 // https://stackoverflow.com/questions/10396321/remove-fragment-page-from-viewpager-in-android
+
+// look https://stackoverflow.com/questions/13664155/dynamically-add-and-remove-view-to-viewpager
             case R.id.action_del_room:
                 int rooms = roomAdapter.getCount();
                 Log.i(TAG, "rooms = " + rooms);
                 int ind = viewPager.getCurrentItem();
 
 
-//                viewPager.removeViewAt(ind);
 //                roomAdapter.delPage(ind);
 //                roomAdapter.notifyDataSetChanged();
 
-                rooms = roomAdapter.getCount();
-                Log.i(TAG, "rooms = " + rooms);
+//                rooms = roomAdapter.getCount();
+//                Log.i(TAG, "rooms = " + rooms);
 
 
+
+                if (ind == rooms-1){
+                    viewPager.setCurrentItem(ind-1);
+                }
+//                viewPager.removeViewAt(ind);
+//                roomAdapter.notifyDataSetChanged();
                 int count = deletePage(ind+1, rooms);
                 Toast.makeText(this, "Deleted "+count+ " entries", Toast.LENGTH_SHORT).show();
                 recreate();
+
+/*
+                Intent mStartActivity = new Intent(MainActivity.this, MainActivity.class);
+                int mPendingIntentId = 123456;
+                PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
+                        PendingIntent.FLAG_CANCEL_CURRENT);
+                AlarmManager mgr = (AlarmManager) MainActivity.this.getSystemService(Context.ALARM_SERVICE);
+                mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 50, mPendingIntent);
+                System.exit(0);
+ */
+
                 return true;
 
             case R.id.action_update:
@@ -542,6 +595,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 startActivityForResult(intent, RK_SETTING);
                 return true;
 
+            case R.id.action_GetNames:
+                askLiConData();
+                return true;
+
+            case R.id.action_GetCommands:
+                getModulesCommands();
+                return true;
+
         }
         return super.onOptionsItemSelected(item);
     }
@@ -551,12 +612,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         super.onActivityResult(requestCode, resultCode, data);
         Log.i(TAG, " onActivityResult " + requestCode+" "+resultCode);
         if (requestCode==RK_SETTING){
-            String fPrefFile = this.getPackageName()+ "_preferences.xml";
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-                fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
-            }
-            String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
-            copyFile(fPref, storageDir+"/Preferences/preferences.xml");
+            clonePrefs();
             readSetting();
 
             if (sUDP!=null){
@@ -569,6 +625,16 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 recreate();
             }
         }
+    }
+
+    private void clonePrefs(){
+        String fPrefFile = this.getPackageName()+ "_preferences.xml";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+            fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
+        }
+        String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
+        copyFile(fPref, storageDir+"/Preferences/preferences.xml");
+
     }
 
     @Override
@@ -591,6 +657,27 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }else{
             item = menu.findItem(R.id.action_update);
             item.setVisible(true);
+        }
+        if (liconIP.equals("")){
+            menu.findItem(R.id.action_GetNames).setVisible(false);
+
+        }else{
+            item = menu.findItem(R.id.action_GetNames);
+            item.setVisible(true);
+            String titl;
+            if (liconName.equals("")){
+                titl = getText(R.string.getnames)+" "+liconIP;
+            }else{
+                titl = getText(R.string.getnames)+" "+liconName;
+            }
+            item.setTitle(titl);
+        }
+        if (execDevs.size()>0){
+            item =menu.findItem(R.id.action_GetCommands);
+            item.setVisible(true);
+        }else{
+            item =menu.findItem(R.id.action_GetCommands);
+            item.setVisible(false);
         }
 
 
@@ -625,6 +712,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         if (rename){
             alert.setTitle(R.string.msg_rename);
             input.setText(name);
+            input.setSelectAllOnFocus(true);
+            input.setInputType(InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         }else{
             alert.setTitle(R.string.add_page);
         }
@@ -648,7 +737,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 dialogInterface.cancel();
             }
         });
-        alert.show();
+        if (rename){
+            Objects.requireNonNull(alert.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }else{
+            alert.show();
+        }
     }
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -678,6 +771,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 switch (netInfo.getType()){
                     case ConnectivityManager.TYPE_WIFI:
                         setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_WiFi));
+
+                        byte[] b = {0x51};
+                        sUDP.sendLiCon(b, (byte) 0x01, stringIP(getBroadcastWiFiIP()));
+
                         workWiFi=true;
                         remote=false;
                         sUDP.setDestIP(stringIP(getBroadcastWiFiIP()));
@@ -718,6 +815,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                         SharedPreferences.Editor editor = prefs.edit();
                         editor.putBoolean("id_cb_WorkWiFi",workWiFi);
                         editor.apply();
+                        clonePrefs();
 //                        isShowDialog = false;
                     }
                 })
@@ -951,6 +1049,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                        Toast.makeText(getApplicationContext(), getText(R.string.no_stun), Toast.LENGTH_LONG).show();
                    }
                    break;
+               case MSG_END_GET_COMMAND:
+                   pBar.setVisibility(View.INVISIBLE);
+                   if (sucsessReadMem){
+                       saveCommandsFile();
+                       Toast.makeText(getApplicationContext(), getText(R.string.Success), Toast.LENGTH_LONG).show();
+                   }else{
+                       Toast.makeText(getApplicationContext(), getText(R.string.error), Toast.LENGTH_LONG).show();
+                   }
+                   break;
            }
         }
     };
@@ -1059,6 +1166,97 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
+    private void getModulesCommands(){
+        pBar.setVisibility(View.VISIBLE);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                sucsessReadMem = true;
+                for (int di = 0; di < execDevs.size(); di++) {
+                    execDevs.get(di).clearMem();
+                    byte[] askBuf = {SET_W_COMMAND, (byte) execDevs.get(di).getDevNum(), 0x05, (byte) CMD_ASK_MEM, 1, 0, (byte) 0xB0};
+                    if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
+                        int count = sUDP.getWBbyte(7);
+                        if (count == 0xFF) count = 0;
+                        if (count>0){
+                            execDevs.get(di).addMem(new byte[]{(byte) count});
+                            int bytesToRead = count*5;
+                            int offs = 0xB0+1;
+                            while (bytesToRead>0){
+                                int countRead = bytesToRead % 128;
+                                bytesToRead -= countRead;
+                                askBuf[4] = (byte) countRead;
+                                askBuf[5] = (byte) (offs >> 8);
+                                askBuf[6] = (byte) (offs & 0xFF);
+                                if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
+                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 0xFFFF);
+                                    execDevs.get(di).addMem(eep);
+                                }else{
+                                    sucsessReadMem = false;
+                                }
+                            }
+                        }
+                    }else{
+                        sucsessReadMem = false;
+                    }
+                }
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
+                bundle.putInt("ThreadEnd", MSG_END_GET_COMMAND);
+                msg.setData(bundle);
+                handler.sendMessage(msg);
+
+            }
+        }).start();
+    }
+
+    private void saveCommandsFile(){
+        ArrayList<Integer> cmdAr = new ArrayList<>();
+        for (int di = 0; di < execDevs.size(); di++) {
+            if (!execDevs.get(di).memEmpty()){
+                int count = execDevs.get(di).getCmdCount();
+                for (int i = 0; i < count; i++) {
+                    int cmd = execDevs.get(di).getNumCmd(i);
+                    if (cmdAr.indexOf(cmd)<0){
+                        cmdAr.add(cmdAr.size(), cmd);
+                    }
+                }
+            }
+        }
+        Collections.sort(cmdAr);
+        ArrayList<String> list = new ArrayList<>();
+        for (int ci = 0; ci < cmdAr.size(); ci++) {
+            StringBuilder stCmd = new StringBuilder(String.format(Locale.getDefault(), "%05d=", cmdAr.get(ci)));
+            for (int di = 0; di < execDevs.size(); di++) {
+                String numD = String.format(Locale.getDefault(), "%02x", execDevs.get(di).getDevNum());
+                for (int i = 0; i < execDevs.get(di).getCmdCount(); i++) {
+                    if (execDevs.get(di).getNumCmd(i) == cmdAr.get(ci)){
+                        stCmd.append(numD).append(execDevs.get(di).getCmdParamStr(i)).append(";");
+                    }
+                }
+            }
+            list.add(list.size(), stCmd.toString());
+        }
+
+        String fileName = getApplicationContext().getFilesDir().toString() + "/Commands";
+        try {
+            FileWriter writer = new FileWriter(fileName);
+            for (int i = 0; i < list.size(); i++) {
+                String str = list.get(i);
+                writer.write(str);
+//                if (i<list.size()-1){         //если надо чтоб пустую строку не выводило в конце
+                    writer.write("\n");
+//                }
+            }
+            writer.close();
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("key_commands", "Commands");
+            editor.apply();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     private void taskAfterConnect(){
 
@@ -1066,7 +1264,20 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             @Override
             public void run() {
 
-                byte[] outBuf = {ASK_COUNT_DEVS};
+                byte[] outBuf = {(byte) CMD_ASK_TYPE};
+                curserial=0;
+                if (askUDP(outBuf, MSG_DEV_TYPE, 0)){
+                    byte[] bufType = sUDP.getWB();
+                    if (bufType.length>=7){
+                        curserial=(bufType[3]&0xFF)*0x1000000+(bufType[4]&0xFF)*0x10000+(bufType[5]&0xFF)*0x100+(bufType[6]&0xFF);
+                    }
+                }
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putInt("curSerial",curserial);
+                editor.apply();
+                clonePrefs();
+
+                outBuf[0] = ASK_COUNT_DEVS;
                 if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
                     int devsCount = sUDP.getWBbyte(1);
                     int[] devs = new int[devsCount];
@@ -1147,6 +1358,16 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             case MSG_RE_SENT_W:
                 parceFromDevice(buf);
                 break;
+            case Msg_LiconIP:
+                liconIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", buf[1]&0xFF, buf[2]&0xFF, buf[3]&0xFF, buf[4]&0xFF);
+                liconName="";
+                if (buf.length>5){
+                    liconName = new String(Arrays.copyOfRange(buf, 5, buf.length), StandardCharsets.UTF_8);
+                }
+                if (!liconName.equals(""))
+                    Toast.makeText(this, "LiCon found at "+liconName, Toast.LENGTH_SHORT).show();
+                else
+                    Toast.makeText(this, "LiCon found at "+liconIP, Toast.LENGTH_SHORT).show();
             case 0:
                 break;
         }
@@ -1358,6 +1579,120 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
+    private void askLiConData(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                byte[] ask = {0, 0, 0, 1, ASK_FOR_DATA};
+                int port = 55300;
+                boolean doRead = true;
+                try {
+                    Socket socket = new Socket(liconIP, port);
+                    OutputStream os = socket.getOutputStream();
+                    os.write(ask, 0, ask.length);
+                    os.flush();
+
+//                    InputStream is;
+                    while (doRead){
+                        InputStream is = socket.getInputStream();
+                        int first = is.read();
+                        int count;
+                        switch (first){
+                            case DATA_NOT_LOAD:
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        Toast.makeText(getApplicationContext(), getText(R.string.no_licon_data), Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                                Log.i(TAG, " From LoCon:  project not load");
+                                doRead=false;
+                                is.close();
+                                break;
+                                /*
+                            case DATA_SUCSESS:
+                                count = is.available();
+                                Log.i(TAG, " From LoCon:  got data sucsess, count = " + count);
+                                clonePrefs();
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                                is.close();
+                                doRead=false;
+                                break;
+
+                                 */
+                            case LICON_NAMES:
+                                count = is.available();
+                                byte[] cb = new byte[count];
+                                count = is.read(cb, 0, count);
+                                File file = new File(getApplicationContext().getFilesDir().toString(), "OutNames");
+                                FileOutputStream fos = new FileOutputStream(file);
+                                fos.write(cb, 0, count);
+                                fos.flush();
+                                fos.close();
+                                SharedPreferences.Editor editor = prefs.edit();
+                                editor.putString("key_names", file.getName());
+                                editor.apply();
+                                namesFile.load(new FileInputStream(file));
+                                for (int ind = 0; ind<execDevs.size(); ind++){
+                                    int outsCount = execDevs.get(ind).getOutCount();
+                                    if (outsCount>0){
+                                        for (int i = 0; i <outsCount ; i++) {
+                                            if (execDevs.get(ind).getLampText(i).equals("")){
+                                                String dkey = String.format(Locale.getDefault(), "D%03d%02d", execDevs.get(ind).getDevNum(), i+1);
+                                                String key = namesFile.getProperty(dkey, "");
+                                                if (!key.equals("")){
+                                                    execDevs.get(ind).setLampText(i, key);
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                 }
+                                clonePrefs();
+                                is.close();
+                                doRead=false;
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                                Log.i(TAG, " From LoCon:  got names, count = " + count);
+                                break;
+                                /*
+                            case CMD_DATA:
+                                count = is.available();
+                                byte[] cmb = new byte[count];
+                                count = is.read(cmb, 0, count);
+                                File fcmd = new File(getApplicationContext().getFilesDir().toString(), "Commands");
+                                FileOutputStream fcos = new FileOutputStream(fcmd);
+                                fcos.write(cmb, 0, count);
+                                fcos.flush();
+                                fcos.close();
+                                editor.putString("key_commands", fcmd.getName());
+                                editor.apply();
+                                Log.i(TAG, " From LiCon:  got commands data, count = " + count);
+                                break;
+
+                                 */
+                        }
+//                        is.close();
+
+                    }
+                    os.close();
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
 
 
 
@@ -1439,11 +1774,13 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 try {
                     in = new FileInputStream(from);
                     OutputStream out = new FileOutputStream(to);
-                    byte[] buf = new byte[1024];
-                    int len;
-                    while ((len = in.read(buf)) > 0) {
-                        out.write(buf, 0, len);
-                    }
+                    int len = in.available();
+                    byte[] buf = new byte[len];
+                    len = in.read(buf, 0, len);
+                    out.write(buf, 0, len);
+                    out.flush();
+//                    while ((len = in.read(buf)) > 0) {
+//                    }
                     out.close();
                     in.close();
                 } catch (IOException e) {
@@ -1453,13 +1790,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             }
         }
     }
+
+
 //-----------------------------------------------------------Config functions----------------------------------------------------------------------------
 
-    public int deletePage(int page, int end){
+    public int deletePage(int curRoom, int endRoom){
         int count = 0;
 
-        String pagestr = String.format(Locale.getDefault(),"%02d", page);
-//        Log.i(TAG, " delRoom end : " + end);
+        String pagestr = String.format(Locale.getDefault(),"%02d", curRoom);
+//        Log.i(TAG, " delRoom endRoom : " + endRoom);
 
         /*
         String CELL_N = "CellNum";
@@ -1483,7 +1822,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             config.delete(keys.get(i));
         }
         String temp;
-        for (int i = page; i <end ; i++) {
+        for (int i = curRoom; i <endRoom ; i++) {
             temp = config.getStr(ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", i+1));
             config.setStr(ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", i), temp);
             String newNum = String.format(Locale.getDefault(), "N%02d", i);
@@ -1494,13 +1833,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 config.delete(keys.get(j));
                 config.setStr(keys.get(j).replace(oldNum, newNum), temp);
             }
-            Log.i(TAG, " remame page: " + (i+1) + " to " + i);
+            Log.i(TAG, " remame curRoom: " + (i+1) + " to " + i);
         }
-        Log.i(TAG, " delete key: " + ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", end));
-        config.delete(ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", end));
+        Log.i(TAG, " delete key: " + ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", endRoom));
+        config.delete(ROOM_NAME_KEY + String.format(Locale.getDefault(),"%02d", endRoom));
         count++;
-//        viewPager.removeView();
-        roomAdapter.delPage(page-1);
+        roomAdapter.delPage(curRoom-1);
         return count;
     }
 

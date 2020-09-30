@@ -37,12 +37,20 @@
              android:key="key_signalIP"
              android:defaultValue="0.0.0.0"/>
 
+         <com.vital.homecontrol.SerialDialog
+             android:title="@string/serial"
+             android:key="key_set_serial"
+             android:defaultValue="0"
+             />
+
+        <!--
          <EditTextPreference
              android:key="key_serial"
              android:title="@string/serial"
              android:inputType="number"
              android:selectAllOnFocus="true"
              android:defaultValue="0"/>
+             -->
 
          <SwitchPreference
              android:title="@string/checkboxitem"
@@ -136,16 +144,6 @@
         </PreferenceCategory>
 
     </PreferenceScreen>
-
-    <PreferenceCategory
-        android:title="@string/files_paths">
-
-        <ListPreference
-            android:key="key_names"
-            android:title="Names"/>
-
-    </PreferenceCategory>
-
 
 
     <!--

@@ -12,5 +12,7 @@
     <color name="cl_btn_act_end">#F77127</color>
     <color name="cl_btn_act_center">#d64b01</color>
     <color name="cl_btn_act_start">#4e0d00</color>
+    <color name="cl_Green">#00FF00</color>
+    <color name="cl_Cyan">#00FFFF</color>
 </resources>
 

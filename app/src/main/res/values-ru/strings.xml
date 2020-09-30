@@ -82,4 +82,23 @@
     <string name="no_host_at_signal_IP">не найдено  на сигнальном сервере</string>
     <string name="no_remIP">Статический адрес или порт устройства не установлен</string>
     <string name="no_stun">Stun сервер недоступен</string>
+    <string name="getnames">Получить данные от </string>
+    <string name="getcmds">Получить номера команд</string>
+    <string name="no_licon_data">Проект не загружен</string>
+    <string name="licon_data_got">Данные получены</string>
+    <string name="Zone">Зона</string>
+    <string name="Scene">Сцена</string>
+    <string name="Scene_OFF">Выключение сцены</string>
+    <string name="Get_Scene">Включение сцены</string>
+    <string name="Triggering">Переключение</string>
+    <string name="Out">выход</string>
+    <string name="oON">включение</string>
+    <string name="oOFF">выключение</string>
+    <string name="oFrom">через</string>
+    <string name="oNow">сразу</string>
+    <string name="sec">сек</string>
+    <string name="get_cmd">Выберите команду</string>
+    <string name="Module">Модуль</string>
+    <string name="Success">Успешно</string>
+    <string name="error">Ошибка</string>
 </resources>
