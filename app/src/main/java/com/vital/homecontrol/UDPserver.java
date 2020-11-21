@@ -152,7 +152,7 @@ class UDPserver {
                                 if ((inData[3]&0xFF)!=lastID){
                                     signBuff = Arrays.copyOfRange(inData,7,len);
                                     lastID= (byte) (inData[3]&0xFF);
-                                    Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+                                    Log.i(TAG, " In from Sign:  "+ byteArrayToHex(inData, len));
 
                                     signUDPok = true;
 
@@ -165,7 +165,7 @@ class UDPserver {
                             if ((ps & 0xFFFF00) == 0x010100){                   // STUN responce
                                 stunBuff = Arrays.copyOf(inData, len);
                                 stunUDPok = true;
-                                Log.i(TAG, "Alt In:  "+ byteArrayToHex(inData, len));
+                                Log.i(TAG, "In from STUN:  "+ byteArrayToHex(inData, len));
 
                             }
                         }
@@ -463,6 +463,10 @@ class UDPserver {
 
     void setPass(int pass){
         this.pass=pass;
+    }
+
+    int getPass(){
+        return this.pass;
     }
 
     void setDestPort(int port){

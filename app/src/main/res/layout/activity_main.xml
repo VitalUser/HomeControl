@@ -23,13 +23,14 @@
         <android.support.v4.view.ViewPager
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:keepScreenOn="true"
             android:layout_weight="1"
             android:id="@+id/viewPager">
 
         </android.support.v4.view.ViewPager>
 
         <TextView
-            android:id="@+id/f_text"
+            android:id="@+id/link_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/cell_color"
@@ -50,20 +51,13 @@
                 android:text="" />
 
             <TextView
-                android:id="@+id/local_IP_text"
+                android:id="@+id/mapped_IP_text"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:background="@drawable/cell_color"
                 android:layout_weight="6"
                 android:text=""/>
 
-            <TextView
-                android:id="@+id/target_IP_text"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="@drawable/cell_color"
-                android:layout_weight="6"
-                android:text=""/>
 
             <TextView
                 android:id="@+id/devcount_text"

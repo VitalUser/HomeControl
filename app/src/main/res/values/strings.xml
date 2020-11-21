@@ -101,4 +101,8 @@
     <string name="Module">Module</string>
     <string name="Success">Success</string>
     <string name="error">Error</string>
+    <string name="need_restart">To apply the changes you need to restart the application</string>
+    <string name="write_permit">Write External Storage permission \nneed to save and restore setting \nin case of delete program</string>
+    <string name="found_settings">Previous Settings found \nRestore it?</string>
+    <string name="no_pass_set">No pass set</string>
 </resources>

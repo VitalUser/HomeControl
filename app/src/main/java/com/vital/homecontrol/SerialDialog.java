@@ -2,6 +2,7 @@ package com.vital.homecontrol;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.preference.DialogPreference;
 import android.preference.PreferenceManager;
 import android.text.InputType;
@@ -46,6 +47,14 @@ public class SerialDialog extends DialogPreference {
         editSerial.setText(String.valueOf(serial));
         editSerial.setInputType(InputType.TYPE_CLASS_NUMBER);
         editSerial.setSelectAllOnFocus(true);
+        /*
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            editSerial.setShowSoftInputOnFocus(true);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            editSerial.setFocusedByDefault(true);
+        }
+         */
 
         Button btnGetSerial = view.findViewById(R.id.btn_get_serial);
         if (curserial!=0){
@@ -61,7 +70,13 @@ public class SerialDialog extends DialogPreference {
             btnGetSerial.setVisibility(View.INVISIBLE);
         }
 
+
+
     }
+
+
+
+
 
     @Override
     protected void onDialogClosed(boolean positiveResult) {

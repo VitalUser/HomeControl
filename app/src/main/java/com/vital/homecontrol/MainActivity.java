@@ -11,7 +11,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
@@ -20,45 +19,33 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
-import android.preference.DialogPreference;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
-import android.text.style.ForegroundColorSpan;
-import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.support.design.widget.TabLayout;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -66,8 +53,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -75,13 +60,14 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import static java.lang.Thread.currentThread;
-import static java.lang.Thread.sleep;
 
 
 public class MainActivity extends AppCompatActivity implements UDPserver.UDPlistener {
@@ -90,7 +76,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     
     private Config config;
     private Properties namesFile;
-    private String configPath;
+    private String cardStorageDir;
 //    public String namesFileName;
     SharedPreferences prefs;
 
@@ -172,11 +158,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int CMD_MSG_STATISTIC          =  0xCA;
     static final int MSG_DEVICE_KIND            =  0xCF;
 
+    static final int CMD_KEEP_LINK              =  0xDD;
     static final int CMD_ASK_STATISTIC          =  0xEA;
 
     static final int NO_CONFIRM                 =  0xFF;
 
-    public static final int NUMBER_OF_REQUEST   = 23401;
+    public static final int REQUEST_WRITE_PERMISSION   = 23401;
 
     static final int MSG_END_CONNECTING         =  0x01;
     static final int MSG_END_CONNECTTASK        =  0x02;
@@ -186,6 +173,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_NO_STUN_ANSWER         =  0x06;
     static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
     static final int MSG_END_GET_COMMAND        =  0x08;
+    static final int MSG_NEED_CHECK_SETTINGS    =  0x10;
 
 
     ViewPager viewPager;
@@ -193,28 +181,27 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     RoomAdapter roomAdapter;
     TabLayout tabLayout;
     TextView statusText;
-    TextView destIPtext;
-    TextView localIPtext;
+    TextView mappedIpText;
+//    TextView localIPtext;
     TextView devCountText;
     TextView sensCountText;
-    TextView fText;
+    TextView linkTText;
     UDPserver sUDP;
 
 
-//    Timer timer;
-//    TimerTask task;
+    Timer timer;
+    TimerTask task;
+//    Timer startTimer;
+//    TimerTask startTask;
 
 
-//    private ConnectivityManager connMgr;
-//    private OnFragmentInteractionListener mListener;
+
     private NetworkInfo netInfo;
     private WifiManager wifiMgr;
-//    private Boolean isShowDialog = false;
     private Boolean netRecieverRegistered = false;
-//    private Boolean udpRecieverRegistered = false;
-//    private Boolean msgRecieverRegistered;
     private Boolean workWiFi = false;
     private Boolean remote = false;
+    private boolean isP2P = false;
     private Boolean staticIP = false;
     private String remoteIP = "0.0.0.0";
     private int remPort = 0;
@@ -223,7 +210,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private String signalIP = "0.0.0.0";
     private String peerIP = "0.0.0.0";
     private int peerPort = 0;
-//    private int signalPort = 16133;
     public int defaultPort = 55555;
     public String devLocalIP;
     private String liconIP = "";
@@ -236,24 +222,19 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     public int lastCommand = 0;
     public int changedState = 0;
     private String theme;
-    public String storageDir;
     private int timeout;
     private boolean sucsessReadMem;
     private String liconName = "";
-//    public boolean cnf;
+    private boolean cardEnable;
+    private boolean extDenied = false;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        storageDir = Environment.getExternalStorageDirectory().toString()+"/HomeControl";
-        String fPrefFile = this.getPackageName()+ "_preferences.xml";
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-            fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
-        }
-        String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
-        copyFile( storageDir+"/Preferences/preferences.xml", fPref);
+//        copyFile( storageDir+"/Preferences/preferences.xml", fPref);
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
 
         theme = prefs.getString("key_theme", "");
         switch (Objects.requireNonNull(theme)){
@@ -273,21 +254,23 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 //        pBar.setLayoutParams(new LinearLayout.LayoutParams(0, 0));
         statusText = findViewById(R.id.status_text);
         statusText.setText("");
-        destIPtext = findViewById(R.id.target_IP_text);
-        destIPtext.setText("");
-        localIPtext = findViewById(R.id.local_IP_text);
-        localIPtext.setText("");
+        mappedIpText = findViewById(R.id.mapped_IP_text);
+        mappedIpText.setText("");
+//        localIPtext = findViewById(R.id.local_IP_text);
+//        localIPtext.setText("");
         devCountText = findViewById(R.id.devcount_text);
         devCountText.setText("0");
         sensCountText = findViewById(R.id.senscount_text);
         sensCountText.setText("0");
-        fText = findViewById(R.id.f_text);
+        linkTText = findViewById(R.id.link_text);
 
+        if (config==null){
+            config = new Config(this.getFilesDir().toString());
+        }
 
-
+        readSetting();
         initiateStorage();
-
-        updateConfig();
+        namesFile = new Properties();
 
         viewPager = findViewById(R.id.viewPager);
         roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
@@ -297,8 +280,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         tabLayout.setupWithViewPager(viewPager, true);
 
         wifiMgr = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-
-        readSetting();
 
         sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
 
@@ -311,31 +292,19 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         Log.i(TAG, "OnCreate" );
 
 
-        /*
-        task = new TimerTask() {
-            @Override
-            public void run() {
-                Log.i(TAG, "TimerTask" );
-
-            }
-        };
-
-        timer = new Timer();
-
-         */
-
     }
 
     private void readSetting(){
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         remoteIP = prefs.getString("key_remIP", "0.0.0.0");
-        signalIP = prefs.getString("key_signalIP", "0.0.0.0");
+        signalIP = prefs.getString("key_signalIP", "178.124.206.163");
         staticIP = prefs.getBoolean("id_cb_StaticIP", false);
         remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
         serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_set_serial", "0")));
         pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
         workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
         timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
+        extDenied = prefs.getBoolean("key_ExtMemDenied", false);
 
 
     }
@@ -344,81 +313,154 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
         //https://toster.ru/q/302804
 
-        boolean canWrite;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){        // API23, Android 6.0
-            canWrite = (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED);
-            if (!canWrite){
-                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, NUMBER_OF_REQUEST);
-            }
-        }else{
-            canWrite =true;
-        }
+        cardEnable = false;
+        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){        // API23, Android 6.0
+                cardEnable = (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED);
+                if (!cardEnable){
+//                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    if (!extDenied) {
+                        Log.i(TAG, "shouldShowRequestPermissionRationale");
+                        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+                        TextView text = new TextView(this);
+                        text.setText(R.string.write_permit);
+                        text.setGravity(Gravity.CENTER);
+                        dlg.setView(text);
+                        dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_PERMISSION);
 
-        namesFile = new Properties();
-        String namesFileName = prefs.getString("key_names", "");
-        if (!Objects.equals(namesFileName, "")){
-            File fileN = new File(this.getFilesDir().toString(), namesFileName);
-            if (fileN.exists()){
-                try {
-                    namesFile.load(new FileInputStream(fileN));
-                } catch (IOException e) {
-                    e.printStackTrace();
+                            }
+                        });
+                        dlg.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                extDenied = true;
+                                SharedPreferences.Editor editor = prefs.edit();
+                                editor.putBoolean("key_ExtMemDenied", extDenied);
+                                editor.apply();
+                                dialog.cancel();
+                            }
+                        });
+                        dlg.show();
+                    }
+                }
+            }else{
+                cardEnable =true;
+            }
+        }
+        if (cardEnable){
+            cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+            File rootDir = new File(cardStorageDir);
+            if (!rootDir.exists()) {
+                if (!rootDir.mkdir()){
+                    cardEnable = false;
                 }
             }
         }
-
-        if (canWrite){
-            File file = new File(storageDir, "");
-            if (!file.exists()){
-                if (!file.mkdirs()){
-                    storageDir = this.getFilesDir().toString();
-                    canWrite = false;
-                    configPath = storageDir;
-                    Log.i(TAG, "directory "+storageDir+" not created, save to FilesDir");
-                }
-            }
+        if (cardEnable){
+            Bundle bundle = new Bundle();
+            Message msg = handler.obtainMessage();
+            bundle.putInt("ThreadEnd", MSG_NEED_CHECK_SETTINGS);
+            msg.setData(bundle);
+            handler.sendMessage(msg);
         }
+    }
 
-        if (canWrite){
-            configPath = storageDir + "/Config";
-            File file = new File(configPath, "");
-            if (!file.exists()){
-                if (!file.mkdirs()){
-                    configPath = storageDir;
-                    Log.i(TAG, "directory "+configPath+" not created, save to FilesDir");
+
+    private void checkForSavedSettings(){
+        String cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+        final String configPath = cardStorageDir + "/Config";
+        File cfile = new File(configPath, "Config.ini");
+        boolean confExist = cfile.exists();
+        final String prefPath = cardStorageDir + "/Preferences";
+        File pfile = new File(prefPath, "Preferences.xml");
+        boolean prefExist = pfile.exists();
+        if ((confExist || prefExist)){
+            AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+            TextView text = new TextView(this);
+            text.setText(R.string.found_settings);
+            text.setGravity(Gravity.CENTER);
+            dlg.setView(text);
+            dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+
+                    copyFile(configPath + "/Config.ini", getApplicationContext().getFilesDir().toString() + "/Config.ini");
+                    String fPrefFile = getApplicationContext().getPackageName()+ "_preferences.xml";   // "com.vital.homecontrol_preferences.xml"
+//                    String fPref = "data/data/"+getApplicationContext().getPackageName()+"/shared_prefs/"+fPrefFile;
+                    String prefDir = "data/data/"+getApplicationContext().getPackageName()+"/shared_prefs";
+                    File fprefDir = new File(prefDir);
+                    boolean fprefDirExist = fprefDir.exists();
+                    if (!fprefDirExist){
+                        fprefDirExist = fprefDir.mkdir();
+                    }
+                    if (fprefDirExist){
+                        copyFile(prefPath + "/Preferences.xml", prefDir + "/" + fPrefFile);
+                    }
+
+                    final AlertDialog.Builder dlgRestart = new AlertDialog.Builder(MainActivity.this);
+                    TextView text = new TextView(MainActivity.this);
+                    text.setText(R.string.need_restart);
+                    text.setGravity(Gravity.CENTER);
+
+                    dlgRestart.setView(text);
+                    dlgRestart.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            saveInt("key_needCheckSetting", 1);
+                            Intent mStartActivity = new Intent(MainActivity.this, MainActivity.class);
+                            int mPendingIntentId = 123456;
+                            PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
+                                    PendingIntent.FLAG_CANCEL_CURRENT);
+                            AlarmManager mgr = (AlarmManager) MainActivity.this.getSystemService(Context.ALARM_SERVICE);
+                            mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 200, mPendingIntent);
+                            System.exit(0);
+                        }
+                    });
+                    dlgRestart.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            saveInt("key_needCheckSetting", 1);
+                            dialog.cancel();
+                        }
+                    });
+                    dlgRestart.show();
+               }
+            });
+            dlg.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    saveInt("key_needCheckSetting", 1);
+                    dialog.cancel();
                 }
-            }
-            file = new File(storageDir+"/Preferences", "");
-            if (!file.exists()){
-                if (!file.mkdirs()){
-//                    Toast.makeText(this, "Unable create Names directory", Toast.LENGTH_SHORT).show();
-                    Log.i(TAG, "directory /Preferences not created");
-                }
-            }
-
-
+            });
+            dlg.show();
         }
-
-
     }
 
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == NUMBER_OF_REQUEST) {
+        if (requestCode == REQUEST_WRITE_PERMISSION) {
             // https://stackoverflow.com/questions/15564614/how-to-restart-an-android-application-programmatically
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                extDenied = false;
+                cardEnable =true;
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
+                bundle.putInt("ThreadEnd", MSG_NEED_CHECK_SETTINGS);
+                msg.setData(bundle);
+                handler.sendMessage(msg);
                 Log.e("TAG", "Пользователь дал разрешение");
-                Intent mStartActivity = new Intent(MainActivity.this, MainActivity.class);
-                int mPendingIntentId = 123456;
-                PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
-                        PendingIntent.FLAG_CANCEL_CURRENT);
-                AlarmManager mgr = (AlarmManager) MainActivity.this.getSystemService(Context.ALARM_SERVICE);
-                mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 200, mPendingIntent);
-                System.exit(0);
             } else {
+                extDenied = true;
                 Log.e("TAG", "Пользователь отклонил разрешение");
             }
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean("key_ExtMemDenied", extDenied);
+            editor.apply();
         }
     }
 
@@ -462,23 +504,20 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     @Override
     protected void onPause() {
         super.onPause();
+        if (timer!=null){
+            timer.cancel();
+        }
+        timer = null;
         Log.i(TAG, " onPause in MainActivity " );
         if (sUDP!=null){
             byte[] outBuf = {BREAK_LINK, 0};
-//            sUDP.send(outBuf, outBuf.length, (byte) 0, 0, 0);
             askUDP(outBuf, 0, 0);
         }
         if (netRecieverRegistered){
             unregisterReceiver(netReciever);
             netRecieverRegistered=false;
         }
-//        if (udpRecieverRegistered){
-//            LocalBroadcastManager.getInstance(this).unregisterReceiver(udpReciever);
-//            udpRecieverRegistered=false;
-//        }
-
-
-//        timer.cancel();
+        cloneConfig();
     }
 
     @Override
@@ -486,7 +525,23 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         super.onResume();
 
         Log.i(TAG, " onResume in MainActivity " );
-//        timer.schedule(task, 1000, 2000);
+        task = new TimerTask() {
+            @Override
+            public void run() {
+                if (netInfo!=null){
+                    if (connected){
+                        sUDP.incCurrentID();
+                        byte[] buf = {(byte) CMD_KEEP_LINK};
+                        sUDP.send(buf, (byte) NO_CONFIRM, 0, 0);
+                        Log.i(TAG, "TimerTask" );
+                    }
+
+                }
+
+            }
+        };
+        timer = new Timer();
+        timer.schedule(task, 12000, 12000);
     }
 
     @Override
@@ -515,7 +570,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean("id_cb_WorkWiFi",workWiFi);
         editor.apply();
-        clonePrefs();
+//        clonePrefs();
         Log.i(TAG, " onDestroy in MainActivity ");
         super.onDestroy();
     }
@@ -546,47 +601,16 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 int rooms = roomAdapter.getCount();
                 Log.i(TAG, "rooms = " + rooms);
                 int ind = viewPager.getCurrentItem();
-
-
-//                roomAdapter.delPage(ind);
-//                roomAdapter.notifyDataSetChanged();
-
-//                rooms = roomAdapter.getCount();
-//                Log.i(TAG, "rooms = " + rooms);
-
-
-
                 if (ind == rooms-1){
                     viewPager.setCurrentItem(ind-1);
                 }
-//                viewPager.removeViewAt(ind);
-//                roomAdapter.notifyDataSetChanged();
                 int count = deletePage(ind+1, rooms);
                 Toast.makeText(this, "Deleted "+count+ " entries", Toast.LENGTH_SHORT).show();
                 recreate();
-
-/*
-                Intent mStartActivity = new Intent(MainActivity.this, MainActivity.class);
-                int mPendingIntentId = 123456;
-                PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
-                        PendingIntent.FLAG_CANCEL_CURRENT);
-                AlarmManager mgr = (AlarmManager) MainActivity.this.getSystemService(Context.ALARM_SERVICE);
-                mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 50, mPendingIntent);
-                System.exit(0);
- */
-
                 return true;
 
             case R.id.action_update:
-
-                /*
-                if (remote){
-                    connectToHost(remoteIP, remPort);
-                }else{
-                    connectToHost(stringIP(getBroadcastWiFiIP()), defaultPort);
-                }
-
-                 */
+                tryConnect();
                 return true;
 
             case R.id.action_settings:
@@ -612,7 +636,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         super.onActivityResult(requestCode, resultCode, data);
         Log.i(TAG, " onActivityResult " + requestCode+" "+resultCode);
         if (requestCode==RK_SETTING){
-            clonePrefs();
+            clonePreferences();
             readSetting();
 
             if (sUDP!=null){
@@ -627,14 +651,33 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
-    private void clonePrefs(){
-        String fPrefFile = this.getPackageName()+ "_preferences.xml";
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-            fPrefFile = PreferenceManager.getDefaultSharedPreferencesName(this) + ".xml";
+    private void cloneConfig(){
+        if (cardEnable){
+            final String configPath = cardStorageDir + "/Config";
+            File configDir = new File(configPath);
+            boolean configDirExist = configDir.exists();
+            if (!configDirExist){
+                configDirExist = configDir.mkdir();
+            }
+            if (configDirExist){
+                copyFile(getApplicationContext().getFilesDir().toString() + "/Config.ini", configPath + "/Config.ini" );
+            }
         }
-        String fPref = "data/data/"+this.getPackageName()+"/shared_prefs/"+fPrefFile;
-        copyFile(fPref, storageDir+"/Preferences/preferences.xml");
-
+    }
+    private void clonePreferences(){
+        if (cardEnable){
+            final String prefPath = cardStorageDir + "/Preferences";
+            File prefDir = new File(prefPath);
+            boolean prefDirExist = prefDir.exists();
+            if (!prefDirExist){
+                prefDirExist = prefDir.mkdir();
+            }
+            if (prefDirExist){
+                String fPrefFile = getApplicationContext().getPackageName()+ "_preferences.xml";   // "com.vital.homecontrol_preferences.xml"
+                String fPref = "data/data/"+getApplicationContext().getPackageName()+"/shared_prefs/"+fPrefFile;
+                copyFile(fPref, prefPath + "/Preferences.xml");
+            }
+        }
     }
 
     @Override
@@ -745,62 +788,64 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
-    private BroadcastReceiver netReciever = new BroadcastReceiver() {
+    private final BroadcastReceiver netReciever = new BroadcastReceiver() {
 
 
         @Override
         public void onReceive(Context context, Intent intent) {
-//            connMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
-            netInfo = ((ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
-            Log.i(TAG, "On Broadcast receive: " + (netInfo==null? "null" : netInfo.getTypeName()));
+            tryConnect();
+       }
+    };
 
-            if (netInfo == null){
-                setTitle(getString(R.string.app_name) + " : " + getString(R.string.no_net));
-                if (wifiMgr.getWifiState() == WifiManager.WIFI_STATE_DISABLED) {       // WiFi is OFF
-                    if (workWiFi) {
-  //                      if (!isShowDialog) {
-                            wifiOnDialog();
- //                       }
-                    }
-                }
+    private void tryConnect(){
+        netInfo = ((ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
+        Log.i(TAG, "On Broadcast receive: " + (netInfo==null? "null" : netInfo.getTypeName()));
 
-            }else{
-                if (!staticIP){
-                    getMappedAddress();
-                }
-                switch (netInfo.getType()){
-                    case ConnectivityManager.TYPE_WIFI:
-                        setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_WiFi));
-
-                        byte[] b = {0x51};
-                        sUDP.sendLiCon(b, (byte) 0x01, stringIP(getBroadcastWiFiIP()));
-
-                        workWiFi=true;
-                        remote=false;
-                        sUDP.setDestIP(stringIP(getBroadcastWiFiIP()));
-                        sUDP.setDestPort(defaultPort);
-                        connectingToHost();
-                        break;
-                    case ConnectivityManager.TYPE_MOBILE:
-                        setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_Mobile));
-                        remote=true;
-                        if (staticIP){
-                            if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
-                                Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
-                            }else{
-                                sUDP.setDestIP(remoteIP);
-                                sUDP.setDestPort(remPort);
-                                connectingToHost();
-                            }
-                        }else{
-                            connectingThrouSignal();
-
-                        }
-                        break;
+        if (netInfo == null){
+            setTitle(getString(R.string.app_name) + " : " + getString(R.string.no_net));
+            if (wifiMgr.getWifiState() == WifiManager.WIFI_STATE_DISABLED) {       // WiFi is OFF
+                if (workWiFi) {
+                    wifiOnDialog();
                 }
             }
+
+        }else{
+            if (!staticIP){
+                getMappedAddress();
+            }
+            switch (netInfo.getType()){
+                case ConnectivityManager.TYPE_WIFI:
+                    setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_WiFi));
+
+                    byte[] b = {0x51};
+                    sUDP.sendLiCon(b, (byte) 0x01, stringIP(getBroadcastWiFiIP()));
+
+                    workWiFi=true;
+                    remote=false;
+                    sUDP.setDestIP(stringIP(getBroadcastWiFiIP()));
+                    sUDP.setDestPort(defaultPort);
+                    connectingToHost();
+                    break;
+                case ConnectivityManager.TYPE_MOBILE:
+                    setTitle(getString(R.string.app_name)  +" : " + getString(R.string.typ_Mobile));
+                    remote=true;
+                    if (staticIP){
+                        if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
+                            Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
+                        }else{
+                            sUDP.setDestIP(remoteIP);
+                            sUDP.setDestPort(remPort);
+                            connectingToHost();
+                        }
+                    }else{
+                        connectingThrouSignal();
+
+                    }
+                    break;
+            }
         }
-    };
+
+    }
 
     public void wifiOnDialog(){
 
@@ -815,7 +860,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                         SharedPreferences.Editor editor = prefs.edit();
                         editor.putBoolean("id_cb_WorkWiFi",workWiFi);
                         editor.apply();
-                        clonePrefs();
+//                        clonePrefs();
 //                        isShowDialog = false;
                     }
                 })
@@ -892,67 +937,78 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 
     private void connectingToHost(){
+        linkTText.setText("");
+        if (sUDP.getPass()==0x800000){
+            statusText.setText(R.string.no_pass_set);
+        }else{
+            statusText.setText(getString(R.string.connecting));
+            connected = false;
+            isP2P = false;
 
-        statusText.setText(getString(R.string.connecting));
-        connected = false;
+            pBar.setVisibility(View.VISIBLE);
 
-        pBar.setVisibility(View.VISIBLE);
+            new  Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.i(TAG, " Create connecting thread: "+currentThread() + ", remote = " +remote );
 
-        new  Thread(new Runnable() {
-            @Override
-            public void run() {
-                Log.i(TAG, " Create connecting thread: "+currentThread() + ", remote = " +remote );
-
-                if (!isIpFound()){
-                    isIpFound();
-                }
-
-                Log.i(TAG, "Send MSG_END_CONNECTING");
-                Bundle bundle = new Bundle();
-                Message msg = handler.obtainMessage();
-                bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
-                msg.setData(bundle);
-                handler.sendMessage(msg);
-
-            }
-        }).start();
-    }
-
-    private void connectingThrouSignal(){
-        statusText.setText(getString(R.string.connecting));
-        connected = false;
-        pBar.setVisibility(View.VISIBLE);
-        Log.i(TAG, "Start connectingThrouSignal");
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int att = 0;
-                while ((peerIP.equals("0.0.0.0"))&&(att<2000)){
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(1);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    att++;
-                }
-                Log.i(TAG, "connectingThrouSignal, time = "+att+"mS");
-                if (att<2000){
-                    Log.i(TAG, "connectingThrouSignal, connect to "+peerIP+" : "+peerPort);
-                    sUDP.setDestIP(peerIP);
-                    sUDP.setDestPort(peerPort);
-                    remote = true;
                     if (!isIpFound()){
                         isIpFound();
                     }
+
+                    Log.i(TAG, "Send MSG_END_CONNECTING");
                     Bundle bundle = new Bundle();
                     Message msg = handler.obtainMessage();
                     bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
                     msg.setData(bundle);
                     handler.sendMessage(msg);
-                }
 
-            }
-        }).start();
+                }
+            }).start();
+        }
+    }
+
+    private void connectingThrouSignal(){
+        linkTText.setText("");
+        if (sUDP.getPass()==0x800000){
+            statusText.setText(R.string.no_pass_set);
+        }else{
+            statusText.setText(getString(R.string.connecting));
+            connected = false;
+            pBar.setVisibility(View.VISIBLE);
+            Log.i(TAG, "Start connectingThrouSignal");
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    int att = 0;
+                    while ((peerIP.equals("0.0.0.0"))&&(att<2000)){
+                        try {
+                            TimeUnit.MILLISECONDS.sleep(1);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        att++;
+                    }
+                    Log.i(TAG, "connectingThrouSignal, time = "+att+"mS, peerIP = "+peerIP);
+                    if (!peerIP.equals("0.0.0.0")){
+                        Log.i(TAG, "connectingThrouSignal, connect to "+peerIP+" : "+peerPort);
+                        sUDP.setDestIP(peerIP);
+                        sUDP.setDestPort(peerPort);
+                        remote = true;
+                        isP2P = true;
+                        if (!isIpFound()){
+                            isIpFound();
+                        }
+                        Bundle bundle = new Bundle();
+                        Message msg = handler.obtainMessage();
+                        bundle.putInt("ThreadEnd", MSG_END_CONNECTING);
+                        msg.setData(bundle);
+                        handler.sendMessage(msg);
+                    }
+
+                }
+            }).start();
+        }
     }
 
     @SuppressLint("HandlerLeak")
@@ -969,12 +1025,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    if (connected){
                        String link;
                        if (remote){
-                           link = mappedIP + " : " + mappedPort + " ("+ getLocalIP() + ") <--> " + remoteIP +" ("+ devLocalIP + ")";
+                           link = mappedIP + " : " + mappedPort + " ("+ getLocalIP() + ") <--> " + peerIP + " : " + peerPort +" ("+ devLocalIP + ")";
 
                        }else{
                            link = getLocalIP() + " <--> " + devLocalIP;
                        }
-                       fText.setText(link);
+                       linkTText.setText(link);
                        taskAfterConnect();
                    }else{
                        if (remote){
@@ -984,7 +1040,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                st = getString(R.string.no_answer) + " " + peerIP + " : "+peerPort;
                            }
                            statusText.setText(R.string.no_connect);
-                           fText.setText("");
+                           linkTText.setText("");
                            pBar.setVisibility(View.INVISIBLE);
                            Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
                        }else{
@@ -992,7 +1048,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                if ((remoteIP.equals("0.0.0.0"))||(remPort==0)){
                                    Toast.makeText(getApplicationContext(), getText(R.string.no_remIP), Toast.LENGTH_LONG).show();
                                    statusText.setText(R.string.no_connect);
-                                   fText.setText("");
+                                   linkTText.setText("");
                                    pBar.setVisibility(View.INVISIBLE);
                                }else{
                                    remote = true;
@@ -1012,7 +1068,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    break;
                case MSG_GOT_MAP_ADDR:
                    st = mappedIP +" : " + mappedPort;
-                   localIPtext.setText(st);
+                   mappedIpText.setText(st);
                    Log.i(TAG, " get MSG_GOT_MAP_ADDR: " + st);
                    if (!connected){
                        if (signalIP.equals("0.0.0.0")){
@@ -1026,13 +1082,13 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    break;
                case MSG_NO_SIGNAL_ANSWER:
                    statusText.setText(R.string.no_connect);
-                   fText.setText("");
+                   linkTText.setText("");
                    pBar.setVisibility(View.INVISIBLE);
                    Toast.makeText(getApplicationContext(), getText(R.string.no_signal_IP) +" "+ signalIP, Toast.LENGTH_LONG).show();
                    break;
                case MSG_NO_HOST:
                    statusText.setText(R.string.no_connect);
-                   fText.setText("");
+                   linkTText.setText("");
                    pBar.setVisibility(View.INVISIBLE);
                    st = getString(R.string.device) + " " + serial + " " + getText(R.string.no_host_at_signal_IP);
                    Toast.makeText(getApplicationContext(), st, Toast.LENGTH_LONG).show();
@@ -1045,7 +1101,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    pBar.setVisibility(View.INVISIBLE);
                    if (!connected){
                        statusText.setText(R.string.no_connect);
-                       fText.setText("");
+                       linkTText.setText("");
                        Toast.makeText(getApplicationContext(), getText(R.string.no_stun), Toast.LENGTH_LONG).show();
                    }
                    break;
@@ -1057,6 +1113,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    }else{
                        Toast.makeText(getApplicationContext(), getText(R.string.error), Toast.LENGTH_LONG).show();
                    }
+                   break;
+               case MSG_NEED_CHECK_SETTINGS:
+                   int needCheckSetting = readInt("key_needCheckSetting");
+                   if (needCheckSetting==0)
+                       checkForSavedSettings();
                    break;
            }
         }
@@ -1070,7 +1131,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
         sUDP.sendStunPacket(buf);
         int att = 0;
-        while (sUDP.waitForStunUDP() & (att<300)){
+        while (sUDP.waitForStunUDP() && (att<300)){
             try {
                 TimeUnit.MILLISECONDS.sleep(1);
             } catch (InterruptedException e) {
@@ -1178,22 +1239,29 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
                         int count = sUDP.getWBbyte(7);
                         if (count == 0xFF) count = 0;
+                        if (count > 67) count = 67;     // max command count;
                         if (count>0){
                             execDevs.get(di).addMem(new byte[]{(byte) count});
                             int bytesToRead = count*5;
                             int offs = 0xB0+1;
-                            while (bytesToRead>0){
-                                int countRead = bytesToRead % 128;
-                                bytesToRead -= countRead;
+                            while ((bytesToRead>0)&&(sucsessReadMem)){
+                                int countRead;
+                                if ((bytesToRead / 128)>0){
+                                    countRead = 128;
+                                }else{
+                                    countRead = bytesToRead % 128;
+                                }
                                 askBuf[4] = (byte) countRead;
                                 askBuf[5] = (byte) (offs >> 8);
                                 askBuf[6] = (byte) (offs & 0xFF);
                                 if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
-                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 0xFFFF);
+                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 7+countRead);
                                     execDevs.get(di).addMem(eep);
                                 }else{
                                     sucsessReadMem = false;
                                 }
+                                bytesToRead -= countRead;
+                                offs += countRead;
                             }
                         }
                     }else{
@@ -1217,7 +1285,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 int count = execDevs.get(di).getCmdCount();
                 for (int i = 0; i < count; i++) {
                     int cmd = execDevs.get(di).getNumCmd(i);
-                    if (cmdAr.indexOf(cmd)<0){
+                    if (!cmdAr.contains(cmd)){
                         cmdAr.add(cmdAr.size(), cmd);
                     }
                 }
@@ -1275,7 +1343,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putInt("curSerial",curserial);
                 editor.apply();
-                clonePrefs();
+//                clonePrefs();
 
                 outBuf[0] = ASK_COUNT_DEVS;
                 if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
@@ -1508,6 +1576,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (netInfo!=null){
+//            timer.purge();
+//            timer.schedule(task, updateLinkPeriod, updateLinkPeriod);
             sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
                 if (hostCmd==MSG_RCV_OK){
@@ -1634,9 +1704,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                 fos.write(cb, 0, count);
                                 fos.flush();
                                 fos.close();
-                                SharedPreferences.Editor editor = prefs.edit();
-                                editor.putString("key_names", file.getName());
-                                editor.apply();
+//                                SharedPreferences.Editor editor = prefs.edit();
+//                                editor.putString("key_names", file.getName());
+//                                editor.apply();
                                 namesFile.load(new FileInputStream(file));
                                 for (int ind = 0; ind<execDevs.size(); ind++){
                                     int outsCount = execDevs.get(ind).getOutCount();
@@ -1653,7 +1723,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
                                     }
                                  }
-                                clonePrefs();
+//                                clonePrefs();
                                 is.close();
                                 doRead=false;
                                 runOnUiThread(new Runnable() {
@@ -1770,6 +1840,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
             }
             if (to.exists()){
+
                 InputStream in;
                 try {
                     in = new FileInputStream(from);
@@ -1868,7 +1939,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     public void updateConfig(){
         if (config==null){
-            config = new Config(configPath);
+            config = new Config(this.getFilesDir().toString());
         }
 
     }

@@ -101,4 +101,8 @@
     <string name="Module">Модуль</string>
     <string name="Success">Успешно</string>
     <string name="error">Ошибка</string>
+    <string name="need_restart">Чтобы изменения вступили в силу \nнеобходимо перезапустить приложение</string>
+    <string name="write_permit">Для восстановления настроек \nв случае удаления приложения \nрекомендуется разрешить доступ к файлам</string>
+    <string name="found_settings">Обнаружены сохраненные настройки \nустановленного ранее приложения \nВосстановить?</string>
+    <string name="no_pass_set">No pass set</string>
 </resources>

@@ -16,7 +16,7 @@ import java.util.Set;
 public class Config {
     private static final String TAG = "MyclassConfig";
     private Properties iniFile;
-    private String configurationFile = "config.ini";
+    private String configurationFile = "Config.ini";
     private String filePath;
 //    private File file;
 

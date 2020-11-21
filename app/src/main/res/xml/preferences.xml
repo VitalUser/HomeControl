@@ -35,7 +35,7 @@
          <com.vital.homecontrol.IPpickerPreference
              android:title="@string/signalIPtext"
              android:key="key_signalIP"
-             android:defaultValue="0.0.0.0"/>
+             android:defaultValue="178.124.206.163"/>
 
          <com.vital.homecontrol.SerialDialog
              android:title="@string/serial"

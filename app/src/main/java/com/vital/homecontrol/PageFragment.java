@@ -750,8 +750,13 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 }
                 dlg = new AlertDialog.Builder(getActivity());
                 if (cmdCount>0){
+                    View view = getLayoutInflater().inflate(R.layout.layout_cmd_dlg, vGroup, false);
                     dlg.setTitle(getString(R.string.get_cmd));
-                    ListView lv = new ListView(getActivity());
+//                    ListView lv = new ListView(getActivity());
+                    ListView lv = view.findViewById(R.id.cmd_list);
+                    final EditText cmdNum = view.findViewById(R.id.edit_cmd_text);
+                    txt = String.valueOf(controls.get(cInd).getCmdNum());
+                    cmdNum.setText(txt);
 
                     String[] inList = cmds.stringPropertyNames().toArray(new String[0]);
                     final ArrayList<String> comList = new ArrayList<>(Arrays.asList(inList));
@@ -761,12 +766,13 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                     adapter = new CmdAdapter(getActivity().getApplicationContext(), R.layout.cmd_list_item, comList);
                     lv.setAdapter(adapter);
                     adapter.setSelect(comList.indexOf(String.format(Locale.getDefault(), "%05d", controls.get(cInd).getCmdNum())));
-                    dlg.setView(lv);
+//                    dlg.setView(lv);
+                    dlg.setView(view);
                     dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            controls.get(cInd).setCmdNum(Integer.parseInt(comList.get(adapter.getSelect())));
-                            act.saveInt(BTN_CMD + suff, Integer.parseInt(comList.get(adapter.getSelect())));
+                            controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
+                            act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
                         }
                     });
 
@@ -775,11 +781,9 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                             adapter.setSelect(position);
                             adapter.notifyDataSetChanged();
+                            cmdNum.setText(comList.get(adapter.getSelect()));
                         }
                     });
-
-
-
                 }else{
                     dlg.setTitle(getString(R.string.enter_cmd));
                     final EditText cmdNum = new EditText(getActivity());
@@ -804,7 +808,8 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                     }
                 });
 
-                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+//                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+                dlg.show();
 
             return true;
 
@@ -1583,7 +1588,37 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
              */
 
 
-//----------------------------------------
+//----------------------------------------dialog with list
+/*
+                    dlg.setTitle(getString(R.string.get_cmd));
+                    ListView lv = new ListView(getActivity());
+
+                    String[] inList = cmds.stringPropertyNames().toArray(new String[0]);
+                    final ArrayList<String> comList = new ArrayList<>(Arrays.asList(inList));
+                    final CmdAdapter adapter;
+
+                    Collections.sort(comList);
+                    adapter = new CmdAdapter(getActivity().getApplicationContext(), R.layout.cmd_list_item, comList);
+                    lv.setAdapter(adapter);
+                    adapter.setSelect(comList.indexOf(String.format(Locale.getDefault(), "%05d", controls.get(cInd).getCmdNum())));
+                    dlg.setView(lv);
+                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            controls.get(cInd).setCmdNum(Integer.parseInt(comList.get(adapter.getSelect())));
+                            act.saveInt(BTN_CMD + suff, Integer.parseInt(comList.get(adapter.getSelect())));
+                        }
+                    });
+
+                    lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                        @Override
+                        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                            adapter.setSelect(position);
+                            adapter.notifyDataSetChanged();
+                        }
+                    });
+
+ */
 //----------------------------------------
 //----------------------------------------
 //----------------------------------------
