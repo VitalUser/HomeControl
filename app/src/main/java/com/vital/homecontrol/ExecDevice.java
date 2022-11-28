@@ -13,6 +13,7 @@ public class ExecDevice implements Parcelable {
     private int mDevNum;
     private byte mOutState;
     private int mOutCount;
+    private boolean mReadMem;
     private String[] mLampText;
     private ArrayList<Byte> mem;
 
@@ -20,6 +21,7 @@ public class ExecDevice implements Parcelable {
         this.mDevNum = devNum;
         this.mOutState = outState;
         this.mOutCount = outCount;
+        this.mReadMem = false;
         this.mLampText = new String[outCount];
         Arrays.fill(this.mLampText, "");
         mem = new ArrayList<>();
@@ -115,8 +117,17 @@ public class ExecDevice implements Parcelable {
         }
     }
 
+    public void setReadMem(boolean state){
+        this.mReadMem=state;
+    }
+
+    public boolean getReadMem(){
+        return this.mReadMem;
+    }
+
     public void clearMem(){
         this.mem.clear();
+        this.mReadMem = false;
     }
 
     public boolean memEmpty(){

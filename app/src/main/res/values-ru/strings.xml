@@ -35,7 +35,8 @@
     <string name="theme_choice">Цветовая тема</string>
     <string name="pass">Пароль</string>
     <string name="no_answer">Нет ответа от устройства</string>
-    <string name="connecting">Соединение…</string>
+    <string name="connecting_local">Соединение local…</string>
+    <string name="connecting_rem">Соединение remote…</string>
     <string name="noIP">Нет ответа IP</string>
     <string name="tbl_setting">Установки</string>
     <string name="defaultPageName">Комната</string>
@@ -105,4 +106,6 @@
     <string name="write_permit">Для восстановления настроек \nв случае удаления приложения \nрекомендуется разрешить доступ к файлам</string>
     <string name="found_settings">Обнаружены сохраненные настройки \nустановленного ранее приложения \nВосстановить?</string>
     <string name="no_pass_set">No pass set</string>
+    <string name="canRotate">Разрешить поворот экрана</string>
+    <string name="showLog">Показать Log</string>
 </resources>

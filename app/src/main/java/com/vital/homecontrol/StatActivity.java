@@ -18,30 +18,43 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.jjoe64.graphview.DefaultLabelFormatter;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-public class StatActivity extends AppCompatActivity {
+import static com.vital.homecontrol.MainActivity.CMD_MSG_ANALOG_DATA;
+import static com.vital.homecontrol.MainActivity.CMD_SEND_COMMAND;
+import static com.vital.homecontrol.MainActivity.MSG_DEVICE_KIND;
+import static com.vital.homecontrol.MainActivity.MSG_DEV_TYPE;
+import static com.vital.homecontrol.MainActivity.MSG_OUT_STATE;
+import static com.vital.homecontrol.MainActivity.MSG_RE_SENT_W;
+import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
+import static com.vital.homecontrol.MainActivity.MSG_STATE;
+
+public class StatActivity extends AppCompatActivity implements UDPserver.UDPlistener {
 
     private static final String TAG = "MyclassStat";
 
     private final int M_SETMAX      = 1;
     private final int M_SETMIN     = 2;
-    private final int M_     = 3;
 
     private static final int IS_TEMP = 1;
     private static final int IS_HUM = 2;
     private static final int IS_PRESS = 3;
 
-    static final String MSG_RCV = "MSG_received";
+//    static final String MSG_RCV = "MSG_received";
 
     static final int SET_W_COMMAND	        =  0x05;
     static final int CMD_SET_STAT_PERIOD    =  0xE3;
+    static final int CMD_ASK_STAT_PERIOD    =  0xE5;
     static final int CMD_MSG_STAT_PERIOD    =  0xC5;
     static final int MSG_RE_SENT_W          =  0x11;
     static final int MSG_RCV_OK             =  0xA5;
@@ -55,17 +68,12 @@ public class StatActivity extends AppCompatActivity {
     SharedPreferences prefs;
     UDPserver sUDP;
     TextView valPeriod;
+    int period = 0;
     private String deviceIP;
     private int devPort;
-    private int localPort;
+//    private int localPort;
     private int sensorTyp;
-
-    private double minTemp;
-    private double maxTemp;
-    private double minHum;
-    private double maxHum;
-    private double minPress;
-    private double maxPress;
+    private MainActivity act;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -90,12 +98,12 @@ public class StatActivity extends AppCompatActivity {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
-        minTemp = prefs.getFloat("MinYTemp", -50);
-        maxTemp = prefs.getFloat("MaxYTemp", 50);
-        minHum = prefs.getFloat("MinYHum", 0);
-        maxHum = prefs.getFloat("MaxYHum", 100);
-        minPress = prefs.getFloat("MinYPress", 0);
-        maxPress = prefs.getFloat("MaxYPress", 1500);
+        double minTemp = prefs.getFloat("MinYTemp", -50);
+        double maxTemp = prefs.getFloat("MaxYTemp", 50);
+        double minHum = prefs.getFloat("MinYHum", 0);
+        double maxHum = prefs.getFloat("MaxYHum", 100);
+        double minPress = prefs.getFloat("MinYPress", 0);
+        double maxPress = prefs.getFloat("MaxYPress", 1500);
 
 
 // http://www.android-graphview.org
@@ -105,10 +113,11 @@ public class StatActivity extends AppCompatActivity {
         ArrayList<Float> inbuf = (ArrayList<Float>) getIntent().getSerializableExtra("statBuff");
         sensorTyp = getIntent().getIntExtra("snsType", 0);
         final int snsNum = getIntent().getIntExtra("snsNum", 0);
-        final int period = getIntent().getIntExtra("period", 0);
+        period = getIntent().getIntExtra("period", 0);
         deviceIP = getIntent().getStringExtra("deviceIP");
         devPort = getIntent().getIntExtra("devPort", 0);
-        localPort = getIntent().getIntExtra("localPort", 0);
+//        sUDP.setDestIP(deviceIP);
+//        sUDP.setDestPort(devPort);
         String snsTyp = getIntent().getStringExtra("measureTyp");
         String snsText = getIntent().getStringExtra("snsText");
         setTitle(snsTyp + " "+snsText);
@@ -187,6 +196,20 @@ public class StatActivity extends AppCompatActivity {
 
         graph.getViewport().setYAxisBoundsManual(true);
         graph.getViewport().setScalableY(true);
+
+        final java.text.DateFormat dateFormat = DateFormat.getTimeInstance();
+
+        /*
+        graph.getGridLabelRenderer().setLabelFormatter(new DefaultLabelFormatter(){
+            @Override
+                    public String formatLabel(double value, boolean isValueX){
+                if (isValueX){
+                    return super.formatLabel()
+                }
+            }
+        }
+*/
+
         switch (sensorTyp){
             case IS_TEMP:
                 graph.setTitle(getString(R.string.temperature));
@@ -208,7 +231,8 @@ public class StatActivity extends AppCompatActivity {
         }
 
 //        graph.getGridLabelRenderer().setVerticalAxisTitle("t, C");
-
+        byte[] buf = {SET_W_COMMAND, (byte) snsNum, 4, (byte) CMD_ASK_STAT_PERIOD};
+//        sendUDP(buf);
     }
 
     @Override
@@ -313,7 +337,7 @@ public class StatActivity extends AppCompatActivity {
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (sUDP == null) {
             int pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
-            sUDP = new UDPserver(this, pass, (UDPserver.UDPlistener) this);
+            sUDP = new UDPserver(this, pass, this);
             Log.i(TAG, " askUDP, new sUDP" );
             sUDP.start();
         }
@@ -352,6 +376,83 @@ public class StatActivity extends AppCompatActivity {
         Log.i(TAG, " waitForConfirm, time = " + att*2 + "mS");
         return (att<100);
     }
+
+    private void sndUDP(final byte[] inBuf){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int curID = sUDP.getCurrentID();
+                curID++;
+                sUDP.setCurrentID((byte) curID);
+                sUDP.send(inBuf, (byte) NO_CONFIRM, 0, 0);
+                Log.i(TAG, "Send without confirm: "+MainActivity.byteArrayToHex(inBuf, inBuf.length));
+            }
+        }).start();
+    }
+
+
+    @Override
+    public void onRxUDP(byte[] buf) {
+        parceFromHub(Arrays.copyOfRange(buf, 7, buf.length));
+    }
+
+    private void parceFromHub(byte[] buf){
+        if (buf[0] == MSG_RE_SENT_W) {
+            parceFromDevice(buf);
+        }
+    }
+
+    private void parceFromDevice(byte[] buf){
+        int cmd = buf[3]&0xFF;
+        switch (cmd){
+            case MSG_DEV_TYPE:
+                /*
+                Log.i(TAG, " PageFragment, get cmd_Msg_DevType for "+devN+",  = " + outState);
+                if (buf[6]>0){
+                    found = false;
+                    for (int i = 0; i <execDevs.size() ; i++) {
+                        if (execDevs.get(i).getDevNum()==(buf[1]&0xFF)){
+                            found = true;
+                        }
+                    }
+                    if (!found){
+                        execDevs.add(new ExecDevice(buf[1], (byte) 0));
+                    Log.i(TAG, " Fragment, add Device. execDevs.size() = "+execDevs.size());
+                    }
+                }
+                break;
+                */
+            case CMD_SEND_COMMAND:
+//                alastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
+                break;
+
+            case MSG_OUT_STATE:
+            case MSG_STATE:
+                break;
+
+            case MSG_DEVICE_KIND:
+                /*
+                if (getSnsIndex(buf[1]&0xFF)<0) {
+                    sensors.add(new SensorDevice(buf[1] & 0xFF, buf[4] & 0xFF, 0, 0, 0));
+                }
+                */
+
+                break;
+
+            case CMD_MSG_STAT_PERIOD:
+                period = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
+                String stp = DateUtils.formatElapsedTime((long) (period*minStatPeriod));
+                valPeriod.setText(stp);
+                break;
+
+            case MSG_SENSOR_STATE:
+                Log.i(TAG, "MSG_SENSOR_STATE in fragment");
+//                updateSensorState(buf[1]&0xFF);
+                break;
+
+        }
+    }
+
 
 
 }

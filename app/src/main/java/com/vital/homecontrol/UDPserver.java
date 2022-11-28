@@ -114,6 +114,9 @@ class UDPserver {
                                     lastID= (byte) (inData[3]&0xFF);
                                     Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
 
+                                    if ((inData[7]&0xFF)==MSG_RCV_OK)
+                                        confirmOk=true;
+
                                     if ((inData[7]&0xFF)==hostCmd){
                                         if (devCmd==0){
                                             confirmOk=true;
@@ -232,7 +235,7 @@ class UDPserver {
     }
 
     @SuppressLint("HandlerLeak")
-    private Handler handler = new Handler(){
+    private final Handler handler = new Handler(){
 
         @Override
         public void handleMessage(Message msg) {
@@ -374,18 +377,6 @@ class UDPserver {
         }
     }
 
-    byte[] getWBpart(int from, int to){
-        if (from<to){
-            if (to<=this.workBuff.length) {
-                return Arrays.copyOfRange(this.workBuff, from, to);
-            }else{
-                return Arrays.copyOfRange(this.workBuff, from, this.workBuff.length);
-            }
-        }else{
-            return Arrays.copyOfRange(this.workBuff, 0, 0);
-        }
-    }
-
     byte[] getWB(){
         return this.workBuff;
     }
@@ -457,6 +448,14 @@ class UDPserver {
         Log.i(TAG, " UDPserver.setDestIP: "+ destIP);
     }
 
+    String getDestIP(){
+        return this.destIP;
+    }
+
+    int getDestPort(){
+        return this.destPort;
+    }
+
     void setSignalIP(String ip){
         this.signalIP=ip;
     }
@@ -471,6 +470,14 @@ class UDPserver {
 
     void setDestPort(int port){
         this.destPort=port;
+    }
+
+    void setConfirm(boolean state){
+        this.confirmOk=state;
+    }
+
+    boolean getConfirm(){
+        return this.confirmOk;
     }
 
 

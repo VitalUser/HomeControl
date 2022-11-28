@@ -42,4 +42,10 @@
         android:title="@string/getcmds"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/action_ShowLog"
+        android:orderInCategory="8"
+        android:title="@string/showLog"
+        app:showAsAction="never" />
+
 </menu>

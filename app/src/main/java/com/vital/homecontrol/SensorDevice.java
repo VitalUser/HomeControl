@@ -2,6 +2,8 @@ package com.vital.homecontrol;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import java.util.Arrays;
 import java.util.Locale;
 
 
@@ -79,7 +81,9 @@ public class SensorDevice implements Parcelable {
         mPress=press;
     }
 
-    public void setData(byte[] data){
+    public void setData(byte[] indData){
+        int count = (indData[2] & 0xFF)-3;
+        byte[] data = Arrays.copyOfRange(indData, 5, count+5);
         switch (mModel){
             case IS_DS18B20:
                 this.mTemp = ((data[0]&0xFF)<<8)|(data[1]&0xFF);

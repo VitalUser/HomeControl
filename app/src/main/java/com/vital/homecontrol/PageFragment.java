@@ -35,6 +35,7 @@ import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -736,6 +737,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 int cmdCount = 0;
                 String cmdf = prefs.getString("key_commands", "");
                 if (!Objects.equals(cmdf, "")){
+                    assert cmdf != null;
                     File fileC = new File(getActivity().getApplicationContext().getFilesDir().toString(), cmdf);
                     if (fileC.exists()){
                         try {
@@ -824,6 +826,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                         int num = controls.get(cInd).getNum();
                         String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
                         act.saveStr(BTN_OUTMASK+textNum, controls.get(cInd).getMaskString());
+                        updateButtonsState();
                     }
                 });
 
@@ -1018,13 +1021,15 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                     intent.putExtra("statBuff", data);
                     intent.putExtra("snsType", typ);
                     intent.putExtra("period", (stat[5]&0xFF)<<8 | stat[6]&0xFF);
-//                    intent.putExtra("deviceIP", act.deviceIP);
-//                    intent.putExtra("devPort", act.devPort);
+                    intent.putExtra("deviceIP", act.sUDP.getDestIP());
+                    intent.putExtra("devPort", act.sUDP.getDestPort());
 //                    intent.putExtra("localPort", act.localPort);
                     intent.putExtra("measureTyp", controls.get(cInd).getUpText());
                     intent.putExtra("snsText", controls.get(cInd).getText());
                     intent.setClass(act.getApplicationContext(), StatActivity.class);
                     startActivity(intent);
+                }else{
+                    Toast.makeText(getContext(), "Error, Try again", Toast.LENGTH_SHORT).show();
                 }
                 return true;
 
@@ -1075,6 +1080,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
         @Override
         public void onReceive(Context context, Intent intent) {
             byte[] inBuf = intent.getByteArrayExtra("Buffer");
+            assert inBuf != null;
             byte[] rbuff = Arrays.copyOfRange(inBuf, 7, inBuf.length);
 //            Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+act.byteArrayToHex(inBuf, inBuf.length));
             parceFromHub(rbuff);
@@ -1210,19 +1216,29 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
     private void setButtonVisualState(Button btn, int controlIndex){
         if (btn!=null){
             boolean activeState = false;
+            boolean devFound = false;
             for (int i = 0; i < act.execDevs.size(); i++) {
                 int numDev = act.execDevs.get(i).getDevNum();
                 int outState = act.execDevs.get(i).getOutState();
                 int mask = controls.get(controlIndex).getMask(numDev);
+                if (controls.get(controlIndex).isExistNumDev(numDev)){
+                    devFound = true;
+                }
+
                 if ((mask & outState)>0)
                     activeState = true;
 
             }
-            if (activeState){
-                btn.setBackgroundResource(R.drawable.sq_btn_activ_color);
-            }else{
-                btn.setBackgroundResource(R.drawable.sq_btn_color);
-            }
+            if (devFound){
+                if (activeState){
+                    btn.setBackgroundResource(R.drawable.sq_btn_activ_color);
+                }else{
+                    btn.setBackgroundResource(R.drawable.sq_btn_color);
+                }
+
+            }else
+                btn.setBackgroundResource(R.drawable.sq_btn_nolink_color);
+
 //            ((GradientDrawable)btn.getBackground().getCurrent()).setShape(GradientDrawable.OVAL);
         }
     }

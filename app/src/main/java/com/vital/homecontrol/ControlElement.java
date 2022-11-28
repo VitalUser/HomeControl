@@ -124,6 +124,10 @@ public class ControlElement {
         }
     }
 
+    public boolean isExistNumDev(int numDev){
+        return this.numAr.contains(numDev);
+    }
+
     public void setMask(int numDev, int mask){
         int ind = this.numAr.indexOf(numDev);
         if (ind>=0){

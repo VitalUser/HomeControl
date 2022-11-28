@@ -11,7 +11,7 @@
     <string name="btn_item_Del">Delete</string>
     <string name="msg_rename">Rename</string>
     <string name="msg_choose_exist_element">Choose existing element</string>
-    <string name="defaultPageName">Page</string>
+    <string name="defaultPageName">Room</string>
     <string name="cancel">Cancel</string>
     <string name="pref_remIP">Remote IP</string>
     <string name="checkboxitem">Note for WiFi</string>
@@ -38,7 +38,8 @@
     <string name="theme_choice">Theme choice</string>
     <string name="pass">Password</string>
     <string name="no_answer">No Answer from device</string>
-    <string name="connecting">Connecting</string>
+    <string name="connecting_local">Connecting local…</string>
+    <string name="connecting_rem">Connecting remote…</string>
     <string name="noIP">No answer IP</string>
     <string name="upd_link">Update Link</string>
     <string name="sensor">Sensor</string>
@@ -105,4 +106,6 @@
     <string name="write_permit">Write External Storage permission \nneed to save and restore setting \nin case of delete program</string>
     <string name="found_settings">Previous Settings found \nRestore it?</string>
     <string name="no_pass_set">No pass set</string>
+    <string name="canRotate">Allow rotate screen</string>
+    <string name="showLog">Show Log</string>
 </resources>

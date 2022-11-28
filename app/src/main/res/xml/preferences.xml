@@ -84,8 +84,26 @@
             android:defaultValue="Light"
             android:summary="This preference allows to select theme"/>
 
+        <SwitchPreference
+            android:title="@string/canRotate"
+            android:defaultValue="false"
+            android:key="id_rotate" />
+
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="Log">
+
+        <SwitchPreference
+            android:title="Full Log"
+            android:defaultValue="false"
+            android:key="key_fullLog" />
+        <SwitchPreference
+            android:title="Show keep link msgs"
+            android:defaultValue="fale"
+            android:key="key_showKeep" />
+
+    </PreferenceCategory>
 
 
     <PreferenceScreen

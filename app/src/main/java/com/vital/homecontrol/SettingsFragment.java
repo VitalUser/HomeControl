@@ -124,6 +124,9 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
                 signaliPpicker.setEnabled(!cb_static.isChecked());
                 serial.setEnabled(!cb_static.isChecked());
                 break;
+            case "key_fullLog":
+
+                break;
             case "key_set_serial":
                 serial.setSummary(serial.getText());
                 break;
