@@ -137,7 +137,7 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
     private Boolean udpRecieverRegistered;
     private int orientation;
 
-    private List<ControlElement> controls = new ArrayList<>();
+    private final List<ControlElement> controls = new ArrayList<>();
 
     public static PageFragment newInstance(int page) {
         Bundle args = new Bundle();

@@ -210,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private Boolean netRecieverRegistered = false;
     private Boolean workWiFi = false;
     private Boolean remote = false;
-    private boolean confirmOk = false;
+//    private boolean confirmOk = false;
     private Boolean staticIP = false;
     private String remoteIP = "0.0.0.0";
     private int remPort = 0;
@@ -228,10 +228,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private int curserial;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
-    private List<Integer> devs = new ArrayList<>();
-    private List<Integer> snss = new ArrayList<>();
-    private List<Integer> devsFound = new ArrayList<>();
-    private List<Integer> snStFound = new ArrayList<>();
+    private final List<Integer> devs = new ArrayList<>();
+    private final List<Integer> snss = new ArrayList<>();
+    private final List<Integer> devsFound = new ArrayList<>();
+    private final List<Integer> snStFound = new ArrayList<>();
     public int lastCommand = 0;
     public int changedState = 0;
     private String theme;
@@ -241,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private boolean cardEnable;
     private boolean extDenied = false;
 
-    private List<String> logList = new ArrayList<>();
+    private final List<String> logList = new ArrayList<>();
 
 
     @Override
@@ -439,7 +439,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                             saveInt("key_needCheckSetting", 1);
                             Intent mStartActivity = new Intent(MainActivity.this, MainActivity.class);
                             int mPendingIntentId = 123456;
-                            PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
+                            @SuppressLint("UnspecifiedImmutableFlag") PendingIntent mPendingIntent = PendingIntent.getActivity(MainActivity.this, mPendingIntentId, mStartActivity,
                                     PendingIntent.FLAG_CANCEL_CURRENT);
                             AlarmManager mgr = (AlarmManager) MainActivity.this.getSystemService(Context.ALARM_SERVICE);
                             mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 200, mPendingIntent);
@@ -515,7 +515,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 
     @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         connected = savedInstanceState.getBoolean(STATE_CONNECTED);
         devLocalIP = savedInstanceState.getString(STATE_DESTIP);
@@ -618,6 +618,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 // https://habr.com/post/222295/ - Menu
     }
 
+    @SuppressLint("NonConstantResourceId")
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
@@ -1532,19 +1533,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
                 }
 
-
-                /*
-                outBuf[0] = ASK_COUNT_DEVS;
-                if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
-                    int devsCount = sUDP.getWBbyte(1);
-                    int[] devs = new int[devsCount];
-                    for (int i = 0; i <devsCount ; i++) {
-                        devs[i]=sUDP.getWBbyte(2+i);
-                    }
-                    Log.i(TAG, " get List Devices: "+ devsCount);
-                }
-                */
-
                 snss.clear();
                 snStFound.clear();
 //                outBuf[0] = ASK_COUNT_SENSORS;
@@ -1622,7 +1610,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private void parceFromHub(byte[] buf){
         switch (buf[0]&0xFF){
             case MSG_RCV_OK:
-                confirmOk=true;
                 break;
             case MSG_ANSW_IP:
                 devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", buf[1]&0xFF,buf[2]&0xFF,buf[3]&0xFF,buf[4]&0xFF); // & 0xFF need for unsigned
@@ -1847,7 +1834,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         if (netInfo!=null){
             for (int i = 1; i <4 ; i++) {
                 sUDP.incCurrentID();
-                sUDP.sendToSignal(inBuf, (byte) NO_CONFIRM);
+                sUDP.sendToSignal(inBuf);
                 int tm = 0;
 
                 while (sUDP.waitForSignalUDP() && (tm<timeout)){
@@ -2215,7 +2202,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             String txt;
 
             if (issend){
-                tDir.setText("Out");
+                st="Out";
+                tDir.setText(st);
                 tID.setText("");
                 tAtt.setText("");
                 st = String.copyValueOf(logs.get(position).toCharArray(), 3, logs.get(position).length()-3);
@@ -2223,7 +2211,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 tCont.setText(decodeContent(st));
 
             }else{
-                tDir.setText("In");
+                st="In";
+                tDir.setText(st);
 
                 st = String.copyValueOf(logs.get(position).toCharArray(), 12, 2);
                 txt ="ID=" + st;

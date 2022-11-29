@@ -36,8 +36,8 @@ class UDPserver {
     private static final String defStunIP = "216.93.246.18";
     private static final int defStunPort = 3478;
 
-    private UDPlistener uL;
-    private Context context;
+    private final UDPlistener uL;
+    private final Context context;
     private String destIP;
     private String signalIP;
     private int destPort;
@@ -150,7 +150,7 @@ class UDPserver {
                                     currentID++;
                                     byte[] buf = {(byte) MSG_RCV_OK};
                                     Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
-                                    sendToSignal(buf, (byte) NO_CONFIRM);
+                                    sendToSignal(buf);
                                 }
                                 if ((inData[3]&0xFF)!=lastID){
                                     signBuff = Arrays.copyOfRange(inData,7,len);
@@ -318,7 +318,7 @@ class UDPserver {
 
     }
 
-    void sendToSignal(final byte[] buffer, final byte attempt){
+    void sendToSignal(final byte[] buffer){
         signUDPok=false;
         new Thread(new Runnable() {
             @Override
@@ -330,7 +330,7 @@ class UDPserver {
                 outData[1] = (byte) (SIGN_PASS/0x100);
                 outData[2] = (byte) (SIGN_PASS & 0xFF);
                 outData[3] = (byte) (currentID & 0xFF);
-                outData[4] = attempt;
+                outData[4] = (byte) 0xFF;
                 outData[5] = 0;
                 outData[6] = 0;
                 Log.i(TAG, " Out: "+  signalIP + " : "+SIGN_PORT+" - "+byteArrayToHex(outData, outData.length));
