@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:layout_weight="0.5">
+
+        <TextView
+            android:id="@+id/text_direct"
+            android:layout_height="match_parent"
+            android:layout_width="25dp"
+            android:textColor="@color/cl_Cyan"
+            />
+
+        <TextView
+            android:id="@+id/text_ID"
+            android:layout_height="match_parent"
+            android:layout_width="40dp"
+            android:textColor="@color/cl_Green"
+            />
+
+        <TextView
+            android:id="@+id/text_attempt"
+            android:layout_height="match_parent"
+            android:layout_width="40dp"
+            android:textColor="@color/cl_btn_def_center"
+            />
+
+        <TextView
+            android:id="@+id/text_content"
+            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:text="Content"
+            android:textColor="@color/cl_Cyan"
+            />
+
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:layout_weight="0.5">
+
+        <TextView
+            android:id="@+id/text_logStr"
+            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            />
+
+
+    </LinearLayout>
+
+
+</LinearLayout>
