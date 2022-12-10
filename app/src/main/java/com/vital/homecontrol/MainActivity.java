@@ -25,6 +25,7 @@ import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -78,6 +79,8 @@ import java.util.concurrent.TimeUnit;
 import static java.lang.Thread.currentThread;
 
 
+// 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 - token
+
 public class MainActivity extends AppCompatActivity implements UDPserver.UDPlistener {
 
     private static final String TAG = "MyclassMain";
@@ -88,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 //    public String namesFileName;
     SharedPreferences prefs;
 
+    private static final String UDP_RCV = "UDP_received";
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
     static final int BC_Dev = 0x7F;
@@ -302,6 +306,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         viewPager = findViewById(R.id.viewPager);
         roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
         viewPager.setAdapter(roomAdapter);
+
+
 
         tabLayout = findViewById(R.id.tabs);
         tabLayout.setupWithViewPager(viewPager, true);
@@ -537,14 +543,16 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         timer = null;
         Log.i(TAG, " onPause in MainActivity " );
         if (sUDP!=null){
+            /*
             waitCondition(new Callable<Boolean>() {
                 @Override
                 public Boolean call() {
                     return null;
                 }
             }, new byte[]{BREAK_LINK, 0});
-//            byte[] outBuf = {BREAK_LINK, 0};
-//            askUDP(outBuf, 0, 0);
+            */
+            byte[] outBuf = {BREAK_LINK, 0};
+            askUDP(outBuf, 0, 0);
         }
         if (netRecieverRegistered){
             unregisterReceiver(netReciever);
@@ -672,9 +680,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     private void showLog() {
         AlertDialog.Builder logDlg = new AlertDialog.Builder(this);
-//        if (logList.size()==0){
-//            logList.add("No commands in Log");
-//        }
         final String[] log = logList.toArray(new String[0]);
 
         final LogAdapter adapter = new LogAdapter(this, R.layout.log_list_item, Arrays.asList(log));
@@ -683,9 +688,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         lv.setAdapter(adapter);
 
         logDlg.setView(lv);
-
-
-//        logDlg.setItems(log, null);
         logDlg.setNeutralButton("Clear and exit", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
@@ -994,13 +996,16 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     private boolean askIP(){
         devLocalIP="";
+        /*
         return waitCondition(new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 return !devLocalIP.equals("");
             }
         }, new byte[]{ASK_IP});
-//        return  askUDP(outBuf, MSG_ANSW_IP, 0);
+        */
+        byte[] outBuf = {ASK_IP};
+        return  askUDP(outBuf, MSG_ANSW_IP, 0);
     }
 
     private boolean isIpFound(){
@@ -1331,7 +1336,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
 
                     if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
-                        int count = sUDP.getWBbyte(7);
+//                        int count = sUDP.getWBbyte(7);
+                        int count = 0;
+                        int wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
+                        if (wInd>=0){
+                           count = sUDP.waitBuf.get(wInd).packet[14]&0xFF;
+                        }
                         if (count == 0xFF) count = 0;
                         if (count > 67) count = 67;     // max command count;
                         if (count>0){
@@ -1349,8 +1359,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                 askBuf[5] = (byte) (offs >> 8);
                                 askBuf[6] = (byte) (offs & 0xFF);
                                 if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
-                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 7+countRead);
-                                    execDevs.get(di).addMem(eep);
+                                    wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
+                                    if (wInd>=0){
+                                        byte[] eep = Arrays.copyOfRange(sUDP.waitBuf.get(wInd).packet, 14, 14+countRead);
+                                        execDevs.get(di).addMem(eep);
+                                    }
+//                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 7+countRead);
                                 }else{
                                     sucsessReadMem = false;
                                 }
@@ -1447,12 +1461,13 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         return false;
     }
 
+    /*
     public boolean waitForConfirm(byte[] inBuf){
         if (netInfo!=null){
             sUDP.setConfirm(false);
             sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
-                sUDP.send(inBuf, (byte) i, 0, 0);
+                sUDP.send(inBuf, (byte) i);
                 Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
                 logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
                 int tm = 0;
@@ -1473,6 +1488,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
         return false;
     }
+    */
 
 
     private void taskAfterConnect(){
@@ -1587,8 +1603,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 buffTime[6] = (byte) cl.get(Calendar.HOUR_OF_DAY);
                 buffTime[7] = (byte) cl.get(Calendar.MINUTE);
                 buffTime[8] = (byte) cl.get(Calendar.SECOND);
-//                askUDP(buffTime, MSG_RCV_OK, 0);
-                waitForConfirm(buffTime);
+                askUDP(buffTime, MSG_RCV_OK, 0);
+//                waitForConfirm(buffTime);
 
                 for (int i = 0; i <execDevs.size() ; i++) {
                     byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
@@ -1611,6 +1627,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         switch (buf[0]&0xFF){
             case MSG_RCV_OK:
                 break;
+
             case MSG_ANSW_IP:
                 devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", buf[1]&0xFF,buf[2]&0xFF,buf[3]&0xFF,buf[4]&0xFF); // & 0xFF need for unsigned
                 Log.i(TAG, " got answer IP: "+devLocalIP );
@@ -1619,6 +1636,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
                 statusText.setText(R.string.connected);
                 break;
+
             case MSG_DEV_TYPE:
                 if (buf.length>=7){
                     curserial=(buf[3]&0xFF)*0x1000000+(buf[4]&0xFF)*0x10000+(buf[5]&0xFF)*0x100+(buf[6]&0xFF);
@@ -1626,6 +1644,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     curserial=0;
                 }
                 break;
+
             case MSG_LIST_DEVS:
                 int devsCount = buf[1]&0xFF;
                 for (int i = 0; i <devsCount ; i++) {
@@ -1633,7 +1652,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
                 progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
                 Log.i(TAG, " get List Devices: "+ devsCount);
-
+                break;
 
             case MSG_LIST_SENSORS:
                 devsCount = buf[1]&0xFF;
@@ -1642,10 +1661,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
                 progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
                 Log.i(TAG, " get List Sensors: "+ devsCount);
+                break;
 
             case MSG_RE_SENT_W:
                 parceFromDevice(buf);
                 break;
+
             case Msg_LiconIP:
                 liconIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", buf[1]&0xFF, buf[2]&0xFF, buf[3]&0xFF, buf[4]&0xFF);
                 liconName="";
@@ -1656,8 +1677,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     Toast.makeText(this, "LiCon found at "+liconName, Toast.LENGTH_SHORT).show();
                 else
                     Toast.makeText(this, "LiCon found at "+liconIP, Toast.LENGTH_SHORT).show();
-            case 0:
                 break;
+
         }
     }
 
@@ -1752,6 +1773,17 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     }
                 }
                 break;
+            case CMD_MSG_STATISTIC:
+                devNum = buf[1]&0xFF;
+                typ = buf[6]&0xFF;
+                sInd = getSnsIndex(devNum);
+                if (sInd>=0){
+                    sensors.get(sInd).mStat.clear();
+                    for (int i = 2; i < buf.length; i++) {
+                        sensors.get(sInd).mStat.add(buf[i]);
+                    }
+                }
+                break;
 
 
         }
@@ -1763,8 +1795,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     public void sendCommand(int cmd){
         if (connected){
             byte[] bufState = {SET_W_COMMAND, BC_Dev, 4, (byte) CMD_SEND_COMMAND, (byte) ((cmd>>8)&0xFF), (byte) (cmd&0xFF)};
-            waitForConfirm(bufState);
-//            askUDP(bufState, MSG_RCV_OK, 0);
+            if (!askUDP(bufState, MSG_RCV_OK, 0))
+                Toast.makeText(this, "Not confirmed", Toast.LENGTH_SHORT).show();
         }else{
             Toast.makeText(this, "No connection", Toast.LENGTH_SHORT).show();
         }
@@ -1804,28 +1836,36 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             for (int i = 1; i <4 ; i++) {
                 if (hostCmd==MSG_RCV_OK){
                     sUDP.send(inBuf, (byte) i, hostCmd, devCmd);
-                    Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
                 }else {
                     sUDP.incCurrentID();
                     sUDP.send(inBuf, (byte) NO_CONFIRM, hostCmd, devCmd);
-                    Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
                 }
+                Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
                 int tm = 0;
-                while ((sUDP.waitForConfirm())&&(tm<timeout)){
+                int pInd=-1;
+                boolean found = false;
+                while (((pInd<0)||(!found))&&(tm<timeout)){
                     try {
+                        pInd = sUDP.getWaitIndex(hostCmd, devCmd);
+                        if (pInd>=0)
+                            found = sUDP.waitBuf.get(pInd).received;
                         TimeUnit.MILLISECONDS.sleep(1);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     tm++;
                 }
+                if (pInd>=0)
+                    sUDP.waitBuf.get(pInd).received = false;
                 if (tm<timeout){
-                    Log.i(TAG, "askUDP " +byteArrayToHex(inBuf, inBuf.length)+ " for ("+Integer.toHexString(sUDP.hostCmd)+", "+Integer.toHexString(sUDP.devCmd)+"), time = "+tm+"mS"+", att = "+i);
+                    Log.i(TAG, "askUDP " +byteArrayToHex(inBuf, inBuf.length)+ " for ("+Integer.toHexString(hostCmd)+", "+Integer.toHexString(devCmd)+"), time = "+tm+"mS"+", att = "+i);
                     return true;
+                }else{
+                    Log.i(TAG, "askUDP timeout");
 
                 }
             }
-            Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
+            Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(hostCmd)+", devCmd = "+Integer.toHexString(devCmd));
         }
         return false;
     }
@@ -1837,7 +1877,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 sUDP.sendToSignal(inBuf);
                 int tm = 0;
 
-                while (sUDP.waitForSignalUDP() && (tm<timeout)){
+                while (!(sUDP.signUDPok) && (tm<timeout)){
                     try {
                         TimeUnit.MILLISECONDS.sleep(1);
                     } catch (InterruptedException e) {
@@ -1862,6 +1902,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     public void onRxUDP(byte[] inData) {
         Log.i(TAG, "onRxUDP: " + byteArrayToHex(inData, inData.length));
         int len = inData.length;
+
+        Intent intent = new Intent(UDP_RCV);
+        intent.putExtra("Buffer", Arrays.copyOf(inData, len));
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+
+
         if (len>7){
 
             byte[] recvBuff = Arrays.copyOfRange(inData,7,len);                      // total - 7
@@ -2269,8 +2315,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     res = "Ask Dev count";
                     break;
                 case "05":
-                    res = decodeCmd(String.copyValueOf(logString.toCharArray(), 3, logString.length()-3));
-                    break;
                 case "11":
                     res = decodeCmd(String.copyValueOf(logString.toCharArray(), 3, logString.length()-3));
                     break;

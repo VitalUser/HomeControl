@@ -16,13 +16,14 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 class UDPserver {
 
     private static final String TAG = "MyclassUDPserver";
-    private static final String UDP_RCV = "UDP_received";
 //    private static final String UDP_PACKET_RCV = "UDP_PacketReceived";
 
 //    private static final int DEF_PASS        =  0xA8A929;
@@ -44,36 +45,32 @@ class UDPserver {
     private int pass;
     byte lastID;
     private byte currentID;
-    int hostCmd;
-    int devCmd;
-    private boolean confirmOk;
-//    private boolean packetUDPok;
-    private boolean signUDPok;
+    public boolean signUDPok;
     private boolean stunUDPok;
 //    private boolean listen;
 
-    private byte[] workBuff;
-    private byte[] liconBuff;
     private byte[] signBuff;
     private byte[] stunBuff;
+
+
+//    public List<ReceivedPacket> rBuffer = new ArrayList<>();
+//    private int pIndex;
+
+    public List<WaitPacket> waitBuf = new ArrayList<>();
+
 
     UDPserver(Context context, int pass, UDPlistener uL){
         this.context = context;
         this.destIP = "0.0.0.0";
         this.signalIP = "0.0.0.0";
         this.destPort = 0;
-        this.workBuff = new byte[255];
         this.signBuff = new byte[255];
         this.stunBuff = new byte[511];
         this.pass = pass;
         this.lastID = 0;
         this.currentID = 1;
-        this.confirmOk = false;
-//        this.packetUDPok = false;
         this.signUDPok = false;
         this.stunUDPok = false;
-        this.hostCmd = 0;
-        this.devCmd = 0;
         this.uL = uL;
         Log.i(TAG, " New UDP-server listen ");
 
@@ -110,34 +107,22 @@ class UDPserver {
                                     send(buf, (byte) NO_CONFIRM, 0, 0);
                                 }
                                 if ((inData[3]&0xFF)!=lastID){
-                                    workBuff = Arrays.copyOfRange(inData,7,len);
+//                                    workBuff = Arrays.copyOfRange(inData,7,len);
                                     lastID= (byte) (inData[3]&0xFF);
                                     Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
 
-                                    if ((inData[7]&0xFF)==MSG_RCV_OK)
-                                        confirmOk=true;
-
-                                    if ((inData[7]&0xFF)==hostCmd){
-                                        if (devCmd==0){
-                                            confirmOk=true;
-                                        }else{
-                                            if ((inData[10]&0xFF)==devCmd){
-                                                confirmOk=true;
-                                            }
-                                        }
+                                    int wInd = getWaitIndex(inData[7]&0xFF, inData[10]&0xFF);
+                                    if (wInd>=0){
+                                        waitBuf.get(wInd).packet = Arrays.copyOfRange(inData,0,len);
+                                        waitBuf.get(wInd).received=true;
                                     }
-                                    Log.i(TAG, " In: confirmOk = "+ confirmOk);
 
                                     Bundle bundle = new Bundle();
                                     Message msg = handler.obtainMessage();
                                     bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
+//                                    bundle.putInt("NewPacketID", pIndex);
                                     msg.setData(bundle);
                                     handler.sendMessage(msg);
-
-
-                                    Intent intent = new Intent(UDP_RCV);
-                                    intent.putExtra("Buffer", Arrays.copyOf(inData, len));
-                                    LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
 
 
                                 }
@@ -201,21 +186,16 @@ class UDPserver {
                                     sendLiCon(buf, (byte) NO_CONFIRM, ip);
                                 }
                                 if ((inData[3]&0xFF)!=lastID){
-                                    liconBuff = Arrays.copyOfRange(inData,7,len);
+//                                    liconBuff = Arrays.copyOfRange(inData,7,len);
                                     lastID= (byte) (inData[3]&0xFF);
                                     Log.i(TAG, " In from LiCon:  "+ byteArrayToHex(inData, len));
 
                                     Bundle bundle = new Bundle();
                                     Message msg = handler.obtainMessage();
                                     bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
+//                                    bundle.putInt("NewPacketID", pIndex);
                                     msg.setData(bundle);
                                     handler.sendMessage(msg);
-
-
-                                    Intent intent = new Intent(UDP_RCV);
-                                    intent.putExtra("Buffer", Arrays.copyOf(inData, len));
-                                    LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
-
 
                                 }
                                 else{
@@ -263,9 +243,19 @@ class UDPserver {
 
 
     void send(final byte[] buffer, final byte attempt, int hCmd, int dCmd){
-        hostCmd=hCmd;
-        devCmd=dCmd;
-        confirmOk=false;
+//        hostCmd=hCmd;
+//        devCmd=dCmd;
+        if (hCmd>0){
+            int ind = getWaitIndex(hCmd, dCmd);
+            if (ind<0){
+                waitBuf.add(new WaitPacket(hCmd, dCmd));
+            }else{
+                waitBuf.get(ind).received = false;
+                waitBuf.get(ind).packet = new byte[]{};
+            }
+
+        }
+
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -368,17 +358,33 @@ class UDPserver {
 
     }
 
-
-    int getWBbyte(int index){
-        if (index<this.workBuff.length){
-            return this.workBuff[index]&0xFF;
-        }else{
-            return 0;
+    /*
+    public int getRcvIndex(int pID){
+        int pInd = this.rBuffer.size()-1;
+        while ((pInd>0)&&(this.rBuffer.get(pInd).index!=pID)){
+            pInd--;
         }
+        return pInd;
     }
+    */
 
-    byte[] getWB(){
-        return this.workBuff;
+    public int getWaitIndex(int hCmd, int dCmd){
+        int pInd = waitBuf.size();
+        boolean found = false;
+        while ((pInd>0)&&(!found)){
+            pInd--;
+            if (waitBuf.get(pInd).devCmd>0){
+                if ((waitBuf.get(pInd).hostCmd==hCmd)&&(waitBuf.get(pInd).devCmd==dCmd)){
+                    found=true;
+                }
+            }else{
+                if (waitBuf.get(pInd).hostCmd==hCmd)
+                    found=true;
+            }
+        }
+        if (!found)
+            pInd=-1;
+        return pInd;
     }
 
     /*
@@ -415,14 +421,6 @@ class UDPserver {
         return this.signBuff;
     }
 
-    boolean waitForConfirm(){
-        return !confirmOk;
-    }
-
-
-
-
-
     boolean waitForSignalUDP(){
         return !signUDPok;
     }
@@ -448,14 +446,6 @@ class UDPserver {
         Log.i(TAG, " UDPserver.setDestIP: "+ destIP);
     }
 
-    String getDestIP(){
-        return this.destIP;
-    }
-
-    int getDestPort(){
-        return this.destPort;
-    }
-
     void setSignalIP(String ip){
         this.signalIP=ip;
     }
@@ -470,14 +460,6 @@ class UDPserver {
 
     void setDestPort(int port){
         this.destPort=port;
-    }
-
-    void setConfirm(boolean state){
-        this.confirmOk=state;
-    }
-
-    boolean getConfirm(){
-        return this.confirmOk;
     }
 
 
@@ -496,6 +478,32 @@ class UDPserver {
             strBuff.append(' ');
         }
         return strBuff.toString().toUpperCase();
+    }
+
+    /*
+    public class ReceivedPacket{
+        public int index;
+        public byte[] packet;
+
+        public ReceivedPacket(int index, byte[] packet) {
+            this.index = index;
+            this.packet = packet;
+        }
+    }
+    */
+
+    public static class WaitPacket{
+        int hostCmd;
+        int devCmd;
+        boolean received;
+        byte[] packet;
+
+        public WaitPacket(int hostCmd, int devCmd){
+            this.hostCmd=hostCmd;
+            this.devCmd=devCmd;
+            this.received=false;
+            this.packet= new byte[]{};
+        }
     }
 
 

@@ -3,7 +3,9 @@ package com.vital.homecontrol;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 
@@ -22,6 +24,7 @@ public class SensorDevice implements Parcelable {
     private int mTemp;
     private int mHum;
     private int mPress;
+    public List<Byte> mStat = new ArrayList<>();
 
     public SensorDevice(int devNum, int model){
         mDevNum = devNum;
@@ -29,6 +32,7 @@ public class SensorDevice implements Parcelable {
         mTemp = 0xFFFF;
         mHum = 0xFFFF;
         mPress = 0xFFFF;
+        mStat.clear();
     }
 
     public SensorDevice(Parcel in) {

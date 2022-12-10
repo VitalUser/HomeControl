@@ -77,6 +77,7 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+//        prefs = act.prefs;
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
 
@@ -335,6 +336,7 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
+/*
         if (sUDP == null) {
             int pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0")));
             sUDP = new UDPserver(this, pass, this);
@@ -357,12 +359,15 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
                 return true;
             }
         }
+        */
+
 //        sendToast(getString(R.string.no_answer));
 //        sendStatusText("No answer to " + byteArrayToHex(inBuf, inBuf.length));
-        Log.i(TAG, "No answer to "+MainActivity.byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(sUDP.hostCmd)+", devCmd = "+Integer.toHexString(sUDP.devCmd));
+        Log.i(TAG, "No answer to "+MainActivity.byteArrayToHex(inBuf, inBuf.length)+", hostCmd = "+Integer.toHexString(hostCmd)+", devCmd = "+Integer.toHexString(devCmd));
         return false;
     }
 
+    /*
     public boolean waitForConfirm(){
         int att = 0;
         while ((sUDP.waitForConfirm())&(att<100)){
@@ -376,6 +381,7 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
         Log.i(TAG, " waitForConfirm, time = " + att*2 + "mS");
         return (att<100);
     }
+    */
 
     private void sndUDP(final byte[] inBuf){
         new Thread(new Runnable() {
@@ -420,8 +426,8 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
                     Log.i(TAG, " Fragment, add Device. execDevs.size() = "+execDevs.size());
                     }
                 }
-                break;
                 */
+                break;
             case CMD_SEND_COMMAND:
 //                alastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
                 break;

@@ -3,7 +3,10 @@ package com.vital.homecontrol;
 // https://startandroid.ru/ru/uroki/vse-uroki-spiskom/228-urok-125-viewpager.html
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
+import android.app.ActionBar;
+//import android.app.AlertDialog;
+import android.app.Dialog;
+import android.support.v7.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -11,6 +14,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -35,7 +39,7 @@ import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.Toast;
+import android.support.v7.widget.Toolbar;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -62,7 +66,7 @@ import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
 
 
 
-public class PageFragment extends Fragment implements UDPserver.UDPlistener {
+public class PageFragment extends Fragment {
 
     private static final String TAG = "MyclassPageFragment";
     public static final String ARG_PAGE = "ARG_PAGE";
@@ -139,12 +143,18 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
 
     private final List<ControlElement> controls = new ArrayList<>();
 
+
     public static PageFragment newInstance(int page) {
         Bundle args = new Bundle();
         args.putInt(ARG_PAGE, page);
+
         PageFragment fragment = new PageFragment();
+
+
+
         fragment.setArguments(args);
         Log.i(TAG, " PageFragment: new page =" + page);
+        Log.i(TAG, " PageFragment: TAG =" + fragment.getTag() + ", ID=" + fragment.getId());
 
         return fragment;
     }
@@ -997,6 +1007,75 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 int typ = controls.get(cInd).getSensType();
                 int dNum = controls.get(cInd).getNumDev();
                 int model = controls.get(cInd).getSensModel();
+                final int stSensInd = act.getSnsIndex(controls.get(cInd).getNumDev());
+
+                byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
+                act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC);
+
+                if (stSensInd>=0){
+                    /*
+                    act.sensors.get(stSensInd).mStat.clear();
+                    byte[] bufStat = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
+                    boolean res = act.waitCondition(new Callable<Boolean>() {
+                        @Override
+                        public Boolean call() {
+                            return act.sensors.get(stSensInd).mStat.size()>0;
+                        }
+                    }, bufStat);
+*/
+
+                    Bundle bundle = new Bundle();
+                    bundle.putString("CurData", act.sensors.get(stSensInd).getValue(IS_TEMP));
+                    StatFragment st = new StatFragment();
+                    st.setArguments(bundle);
+                    st.show(getFragmentManager(), StatFragment.TAG);
+
+                    /*
+                    AlertDialog.Builder logDlg = new AlertDialog.Builder(getActivity());
+
+//                    View stat = getLayoutInflater().inflate(R.layout.stat_frame, vGroup, false);
+
+                    View stat = View.inflate(getContext(), R.layout.stat_frame, null);
+                    TextView curTemp = stat.findViewById(R.id.id_curtemp);
+                    TextView xx = stat.findViewById(R.id.txt_period);
+                    xx.setText("txt");
+                    switch (typ){
+                        case IS_TEMP:
+                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_TEMP));
+                            break;
+                        case IS_HUM:
+                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_HUM));
+                            break;
+                        case IS_PRESS:
+                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_PRESS));
+                            break;
+                    }
+                    logDlg.setNegativeButton("Exit", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            dialogInterface.cancel();
+                        }
+                    });
+                    logDlg.setView(stat);
+                    logDlg.show();
+                   */
+
+
+                    /*
+                    WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+                    lp.copyFrom(stdlg.getWindow().getAttributes());
+                    lp.width = WindowManager.LayoutParams.MATCH_PARENT;
+                    lp.height = WindowManager.LayoutParams.MATCH_PARENT;
+                    stdlg.show();
+                    stdlg.getWindow().setAttributes(lp);
+*/
+                }
+
+
+
+
+
+                /*
                 byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
                 if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
 
@@ -1014,8 +1093,6 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                             data.add(getFloatSensorValue(val, model, typ));
                         }
                     }
-
-
                     Intent intent = new Intent();
                     intent.putExtra("snsNum", dNum);
                     intent.putExtra("statBuff", data);
@@ -1031,6 +1108,8 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                 }else{
                     Toast.makeText(getContext(), "Error, Try again", Toast.LENGTH_SHORT).show();
                 }
+                */
+
                 return true;
 
             case M_DEL_SNS:
@@ -1070,10 +1149,12 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
         }
     }
 
+    /*
     @Override
-    public void onRxUDP(byte[] inBuf) {
+    public void onRxUDP(byte[] inBuf, int pIndex) {
         parceFromHub(Arrays.copyOfRange(inBuf, 7, inBuf.length));
     }
+    */
 
     BroadcastReceiver udpReciever = new BroadcastReceiver() {
 
@@ -1117,8 +1198,8 @@ public class PageFragment extends Fragment implements UDPserver.UDPlistener {
                     Log.i(TAG, " Fragment, add Device. execDevs.size() = "+execDevs.size());
                     }
                 }
-                break;
                 */
+                break;
             case CMD_SEND_COMMAND:
 //                alastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
                 break;

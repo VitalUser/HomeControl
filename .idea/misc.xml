@@ -10,8 +10,18 @@
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/drawable/sq_btn_press_color.xml" value="0.2485" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/activity_main.xml" value="0.20425724637681159" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/cmd_list_item.xml" value="0.2630208333333333" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/control_element.xml" value="0.24739583333333334" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/fragment_fullscreen.xml" value="0.2046875" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/fragment_page.xml" value="0.24739583333333334" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/fragment_stat.xml" value="0.26666666666666666" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/last_change_getter.xml" value="0.24739583333333334" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/layout_cmd_dlg.xml" value="0.20425724637681159" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/layout_mask_dialog.xml" value="0.20425724637681159" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/log_list_item.xml" value="0.26197916666666665" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/numberpicker_dialog.xml" value="0.24739583333333334" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/seek_bar.xml" value="0.24739583333333334" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/stat_frame.xml" value="0.24635416666666668" />
+        <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/layout/stat_layout.xml" value="0.2375" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/menu/main_menu.xml" value="0.20104166666666667" />
         <entry key="..\:/AndroidStudioProjects/HomeControl/app/src/main/res/xml/preferences.xml" value="0.20425724637681159" />
       </map>

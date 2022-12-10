@@ -108,4 +108,5 @@
     <string name="no_pass_set">No pass set</string>
     <string name="canRotate">Allow rotate screen</string>
     <string name="showLog">Show Log</string>
+    <string name="ok">OK</string>
 </resources>
