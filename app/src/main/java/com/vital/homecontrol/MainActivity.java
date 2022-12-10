@@ -71,7 +71,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Thread.currentThread;
@@ -148,6 +147,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int CMD_SEND_COMMAND           =  0x88;
 
     static final int MSG_STATE                  =  0x61;
+    static final int MSG_ACT_INPUT              =  0x63;
     static final int MSG_OUT_STATE              =  0x64;
     static final int MSG_EEP_DATA               =  0x65;
     static final int MSG_SENSOR_STATE           =  0x67;
@@ -212,7 +212,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private Boolean netRecieverRegistered = false;
     private Boolean workWiFi = false;
     private Boolean remote = false;
-//    private boolean confirmOk = false;
     private Boolean staticIP = false;
     private String remoteIP = "0.0.0.0";
     private int remPort = 0;
@@ -230,10 +229,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private int curserial;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
-    private final List<Integer> devs = new ArrayList<>();
-    private final List<Integer> snss = new ArrayList<>();
-    private final List<Integer> devsFound = new ArrayList<>();
-    private final List<Integer> snStFound = new ArrayList<>();
     public int lastCommand = 0;
     public int changedState = 0;
     private String theme;
@@ -242,8 +237,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private String liconName = "";
     private boolean cardEnable;
     private boolean extDenied = false;
-
-    private final List<String> logList = new ArrayList<>();
 
 
     @Override
@@ -539,14 +532,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         timer = null;
         Log.i(TAG, " onPause in MainActivity " );
         if (sUDP!=null){
-            /*
-            waitCondition(new Callable<Boolean>() {
-                @Override
-                public Boolean call() {
-                    return null;
-                }
-            }, new byte[]{BREAK_LINK, 0});
-            */
             byte[] outBuf = {BREAK_LINK, 0};
             askUDP(outBuf, 0, 0);
         }
@@ -569,8 +554,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     if (connected){
                         sUDP.incCurrentID();
                         byte[] buf = {(byte) CMD_KEEP_LINK};
-                        if (prefs.getBoolean("key_showKeep", false))
-                           logList.add("S: " + byteArrayToHex(buf, buf.length));
+//                        if (prefs.getBoolean("key_showKeep", false))
+//                           logList.add("S: " + byteArrayToHex(buf, buf.length));
                         sUDP.send(buf, (byte) NO_CONFIRM, 0, 0);
                         Log.i(TAG, "TimerTask" );
                     }
@@ -676,9 +661,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     private void showLog() {
         AlertDialog.Builder logDlg = new AlertDialog.Builder(this);
-        final String[] log = logList.toArray(new String[0]);
 
-        final LogAdapter adapter = new LogAdapter(this, R.layout.log_list_item, Arrays.asList(log));
+//        final String[] log = logList.toArray(new String[0]);
+//        final LogAdapter adapter = new LogAdapter(this, R.layout.log_list_item, Arrays.asList(log));
+        final List<LogRecord> logData = new ArrayList<>(sUDP.log);
+        final LogDataAdapter adapter = new LogDataAdapter(this, R.layout.log_list_item, logData);
 
         final ListView lv = new ListView(this);
         lv.setAdapter(adapter);
@@ -687,7 +674,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         logDlg.setNeutralButton("Clear and exit", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                logList.clear();
+                sUDP.log.clear();
                 dialogInterface.cancel();
             }
         });
@@ -1429,62 +1416,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
-    public boolean waitCondition(Callable<Boolean> callback, byte[] inBuf){
-        if (netInfo!=null){
-            logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
-            boolean dd = false;
-            for (int i = 1; i <4 ; i++) {
-                sUDP.incCurrentID();
-                sUDP.send(inBuf, (byte) NO_CONFIRM, 0, 0);
-                Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
-                int tm = 0;
-                while ((!dd)&&(tm<timeout)){
-                    try {
-                        dd = callback.call();
-                        TimeUnit.MILLISECONDS.sleep(1);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    tm++;
-                }
-                if (tm<timeout){
-                    Log.i(TAG, "send in waitCondition " +byteArrayToHex(inBuf, inBuf.length)+ ",  time = "+tm+"mS"+", att = "+i);
-                    return true;
-                }
-            }
-            Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", in waitCondition");
-        }
-        return false;
-    }
-
-    /*
-    public boolean waitForConfirm(byte[] inBuf){
-        if (netInfo!=null){
-            sUDP.setConfirm(false);
-            sUDP.incCurrentID();
-            for (int i = 1; i <4 ; i++) {
-                sUDP.send(inBuf, (byte) i);
-                Log.i(TAG, " OutMain: "+  byteArrayToHex(inBuf, inBuf.length));
-                logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
-                int tm = 0;
-                while ((!sUDP.getConfirm())&&(tm<timeout)){
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(1);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    tm++;
-                }
-                if (tm<timeout){
-                    Log.i(TAG, "send in waitForConfirm " +byteArrayToHex(inBuf, inBuf.length)+ ",  time = "+tm+"mS"+", att = "+i);
-                    return true;
-                }
-            }
-            Log.i(TAG, "No answer to "+byteArrayToHex(inBuf, inBuf.length)+", in waitForConfirm");
-        }
-        return false;
-    }
-    */
 
 
     private void taskAfterConnect(){
@@ -1494,94 +1425,75 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         new Thread(new Runnable() {
             @Override
             public void run() {
-
                 curserial=-1;
-//                byte[] outBuf = {(byte) CMD_ASK_TYPE};
-                boolean res = waitCondition(new Callable<Boolean>() {
-                    @Override
-                    public Boolean call() {
-                        return curserial>-1;
-                    }
-                }, new byte[] {(byte) CMD_ASK_TYPE});
+                byte[] outBuf = {(byte) CMD_ASK_TYPE};
+                askUDP(outBuf, MSG_DEV_TYPE, 0);
 
-                if (res){
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putInt("curSerial",curserial);
-                    editor.apply();
+
+                outBuf[0] = ASK_COUNT_DEVS;
+                if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
+                    int ind = sUDP.getWaitIndex(MSG_LIST_DEVS, 0);
+                    if (ind>=0){
+                        int devsCount = sUDP.waitBuf.get(ind).packet[8];
+                        Log.i(TAG, " get List Devices: "+ devsCount);
+                        progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
+
+                        int[] devs = new int[devsCount];
+                        for (int i = 0; i <devsCount ; i++) {
+                            devs[i]=sUDP.waitBuf.get(ind).packet[9+i];
+                        }
+                        Log.i(TAG, " get List Devices: "+ devsCount);
+                        for (int i = 0; i <devsCount; i++) {
+                            byte[] bufCount = {SET_W_COMMAND, (byte) devs[i], 2, (byte) CMD_ASK_TYPE};
+                            askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
+                        }
+                    }
                 }
 
-                devs.clear();
-                devsFound.clear();
-//                outBuf[0] = ASK_COUNT_DEVS;
-                res = waitCondition(new Callable<Boolean>() {
-                    @Override
-                    public Boolean call() {
-                        return devs.size()>0;
-                    }
-                }, new byte[] {ASK_COUNT_DEVS});
-
-                if (res){
-                    for (int i = 0; i <devs.size(); i++) {
-                        final int nd = devs.get(i)&0xFF;
-                        byte[] bufCount = {SET_W_COMMAND, (byte) nd, 2, (byte) CMD_ASK_TYPE};
-                        waitCondition(new Callable<Boolean>() {
-                            @Override
-                            public Boolean call() {
-                                /*
-                                boolean found = false;
-                                for (int j = 0; j < execDevs.size(); j++) {
-
-                                    if (getDevIndex(nd)>-1){
-                                        found = true;
-                                        break;
+                outBuf[0] = ASK_COUNT_SENSORS;
+                if (askUDP(outBuf, MSG_LIST_SENSORS, 0)){
+                    int ind = sUDP.getWaitIndex(MSG_LIST_SENSORS, 0);
+                    if (ind>=0){
+                        int sensCount = sUDP.waitBuf.get(ind).packet[8];
+                        int[] sens = new int[sensCount];
+                        for (int i = 0; i <sensCount ; i++) {
+                            sens[i]=sUDP.waitBuf.get(ind).packet[9+i];
+                        }
+                        progressLinkDevs.setMax(progressLinkDevs.getMax() + sensCount);
+                        Log.i(TAG, " get List Sensors: "+ sensCount);
+                        for (int i = 0; i <sensCount; i++) {
+                            byte[] bufCount = {SET_W_COMMAND, (byte) sens[i], 2, (byte) CMD_ASK_DEVICE_KIND};
+                            if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)){
+                                int snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_DEVICE_KIND);
+                                if (snd>=0){
+                                    int devN = sUDP.waitBuf.get(snd).packet[8];
+                                    int sInd = getSnsIndex(devN);
+                                    if (sInd<0){
+                                        sInd=sensors.size();
+                                        sensors.add(new SensorDevice(devN, sUDP.waitBuf.get(snd).packet[11]));
+//                                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
                                     }
-                                }
-                                */
-                                return devsFound.contains(nd);
-                            }
-                        }, bufCount);
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
+                                        }
+                                    });
+                                    byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
+                                    if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)){
+                                        snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
+                                        if (snd>=0){
+                                            int count = sUDP.waitBuf.get(snd).packet[9]-3;
+//                                        byte[] buf = sUDP.getWBpart(5, count+5);
+                                            byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(snd).packet, 12, count+12);
+                                            sensors.get(sInd).setData(buf);
+                                            Log.i(TAG, "MSG_SENSOR_STATE in Main");
 
-                    }
-
-                }
-
-                snss.clear();
-                snStFound.clear();
-//                outBuf[0] = ASK_COUNT_SENSORS;
-                res = waitCondition(new Callable<Boolean>() {
-                    @Override
-                    public Boolean call() {
-                        return snss.size()>0;
-                    }
-                }, new byte[] {ASK_COUNT_SENSORS});
-
-                if (res){
-                    for (int i = 0; i <snss.size(); i++){
-                        final int nd = snss.get(i)&0xFF;
-                        byte[] bufCount = {SET_W_COMMAND, (byte) nd, 2, (byte) CMD_ASK_DEVICE_KIND};
-                        final boolean snsOk = waitCondition(new Callable<Boolean>() {
-                            @Override
-                            public Boolean call() {
-                                boolean found = false;
-                                for (int j = 0; j < sensors.size(); j++) {
-                                    if (getSnsIndex(nd)>-1){
-                                        found = true;
-                                        break;
+                                        }
                                     }
+
                                 }
-                                return found;
                             }
-                        }, bufCount);
-
-                        if (snsOk){
-                            byte[] bufState = {SET_W_COMMAND, (byte) nd, 2, (byte) CMD_ASK_SENSOR_STATE};
-                            waitCondition(new Callable<Boolean>() {
-                                @Override
-                                public Boolean call() {
-                                    return snStFound.contains(nd);
-                                }
-                            }, bufState);
-
                         }
 
                     }
@@ -1642,21 +1554,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 break;
 
             case MSG_LIST_DEVS:
-                int devsCount = buf[1]&0xFF;
-                for (int i = 0; i <devsCount ; i++) {
-                    devs.add(buf[2+i]&0xFF);
-                }
-                progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
-                Log.i(TAG, " get List Devices: "+ devsCount);
                 break;
 
             case MSG_LIST_SENSORS:
-                devsCount = buf[1]&0xFF;
-                for (int i = 0; i <devsCount ; i++) {
-                    snss.add(buf[2+i]&0xFF);
-                }
-                progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
-                Log.i(TAG, " get List Sensors: "+ devsCount);
                 break;
 
             case MSG_RE_SENT_W:
@@ -1685,8 +1585,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             case MSG_DEV_TYPE:
                 progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
                 int outsCount = buf[6]&0xFF;
-                if (!devsFound.contains(buf[1]&0xFF))
-                    devsFound.add(buf[1]&0xFF);
+//                if (!devsFound.contains(buf[1]&0xFF))
+//                    devsFound.add(buf[1]&0xFF);
                 if (outsCount>0){                 // add only OutCount>0
                     if (getDevIndex(buf[1]&0xFF)<0){
                         int ind = execDevs.size();
@@ -1739,11 +1639,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 break;
 
             case MSG_SENSOR_STATE:
-                devN = buf[1] & 0xFF;
-                if (!snStFound.contains(devN))
-                    snStFound.add(devN);
-                int snd = getSnsIndex(devN);
-                sensors.get(snd).setData(buf);
                 break;
 
             case CMD_SEND_COMMAND:
@@ -1826,7 +1721,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (netInfo!=null){
-            logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
+//            logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
             if (hostCmd==MSG_RCV_OK)
                 sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
@@ -1913,12 +1808,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 parceFromHub(recvBuff);
             }
 
-        }
-        if ((inData[7]&0xFF)== 0xDF){
-            if (prefs.getBoolean("key_showKeep", false))
-                logList.add("R: " + byteArrayToHex(inData, len));
-        }else{
-            logList.add("R: " + byteArrayToHex(inData, len));
         }
     }
 
@@ -2087,6 +1976,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         return strBuff.toString().toUpperCase();
     }
 
+    public static String byteToHex(byte b){
+        StringBuilder str = new StringBuilder(2);
+        int v = b & 0xFF;
+        if (v<16)
+            str.append("0");
+        str.append(Integer.toHexString(v));
+        return str.toString().toUpperCase();
+    }
+
     public int getDevNumChange(){
         return (this.changedState>>8)&0xFF;
     }
@@ -2217,195 +2115,176 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     }
 
+    private class LogDataAdapter extends ArrayAdapter<LogRecord> {
 
-    private class LogAdapter extends ArrayAdapter<String> {
+        private final List<LogRecord> logs;
 
-        private final List<String> logs;
-//        private int selection;
-
-        public LogAdapter(@NonNull Context context, int resource, @NonNull List<String> objects) {
+        public LogDataAdapter(@NonNull Context context, int resource, @NonNull List<LogRecord> objects) {
             super(context, resource, objects);
             logs = objects;
-//            selection = -1;
         }
 
         @NonNull
         @Override
         public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-            LayoutInflater inflater = getLayoutInflater();
-            @SuppressLint("ViewHolder") View item = inflater.inflate(R.layout.log_list_item, parent, false);
+            @SuppressLint("ViewHolder") View item = getLayoutInflater().inflate(R.layout.log_list_item, parent, false);
             TextView tDir = item.findViewById(R.id.text_direct);
+            String st;
+            if (logs.get(position).isSend())
+                st = "Out";
+            else
+                st = "In";
+            tDir.setText(st);
+
             TextView tID = item.findViewById(R.id.text_ID);
+            st = "ID="+ byteToHex(logs.get(position).getData()[3]);
+            tID.setText(st);
+
             TextView tAtt = item.findViewById(R.id.text_attempt);
+            if ((logs.get(position).getData()[4]&0xFF)==0xFF)
+                st="";
+            else
+                st="Att " + String.valueOf(logs.get(position).getData()[4]);
+            tAtt.setText(st);
+
             TextView tLog = item.findViewById(R.id.text_logStr);
-            TextView tCont = item.findViewById(R.id.text_content);
-            String st = String.copyValueOf(logs.get(position).toCharArray(), 0, 1);
-            boolean issend = (st.equals("S"));
-            String txt;
-
-            if (issend){
-                st="Out";
-                tDir.setText(st);
-                tID.setText("");
-                tAtt.setText("");
-                st = String.copyValueOf(logs.get(position).toCharArray(), 3, logs.get(position).length()-3);
-                tLog.setText(st);
-                tCont.setText(decodeContent(st));
-
-            }else{
-                st="In";
-                tDir.setText(st);
-
-                st = String.copyValueOf(logs.get(position).toCharArray(), 12, 2);
-                txt ="ID=" + st;
-                tID.setText(txt);
-
-                st = String.copyValueOf(logs.get(position).toCharArray(), 15, 2);
-                if (st.equals("FF")){
-                    tAtt.setText("");
-
-                }else{
-                    txt="Att " + st;
-                    tAtt.setText(txt);
-
-                }
-
-                if (prefs.getBoolean("key_fullLog", false))
-                    st = String.copyValueOf(logs.get(position).toCharArray(), 3, logs.get(position).length()-3);
-                else
-                    st = String.copyValueOf(logs.get(position).toCharArray(), 24, logs.get(position).length()-24);
-
-
-                tLog.setText(st);
-                tCont.setText(decodeContent(st));
-
+            if (prefs.getBoolean("key_fullLog", false))
+                st = byteArrayToHex(logs.get(position).getData(), logs.get(position).getData().length);
+            else{
+                byte[] lg = Arrays.copyOfRange(logs.get(position).getData(), 7, logs.get(position).getData().length);
+                st = byteArrayToHex(lg, lg.length);
             }
+            tLog.setText(st);
+
+            TextView tCont = item.findViewById(R.id.text_content);
+            tCont.setText(decodeContent(logs.get(position).getData()));
+
+
 
             return item;
         }
 
-        private String decodeContent(String logString){
+        private String decodeContent(byte[] data){
             String res = "";
-            String byte1 = String.copyValueOf(logString.toCharArray(), 0, 2);
+            byte[] subData;
+//            String byte1 = String.copyValueOf(logString.toCharArray(), 0, 2);
 //            String byte2 = String.copyValueOf(logString.toCharArray(), 3, 2);
-            switch (byte1){
-                case "01":
+            switch (data[7]&0xFF){
+                case ASK_IP:
                     res = "Ask IP";
                     break;
-                case "9E":
+                case CMD_ASK_TYPE:
                     res = "Ask Type";
                     break;
-                case "6E":
-                    res = "Type is " + String.copyValueOf(logString.toCharArray(), 3, logString.length()-3);
+                case MSG_DEV_TYPE:
+                    subData = Arrays.copyOfRange(data, 8, data.length);
+                    res = "Type is " + byteArrayToHex(subData, subData.length);
                     break;
-                case "1B":
-                    res = "Dev count " + String.copyValueOf(logString.toCharArray(), 3, 2);
+                case MSG_LIST_DEVS:
+                    res = "Dev count " + byteToHex(data[8]);
                     break;
-                case "31":
+                case CMD_SET_TIME:
                     res = "Set Time";
                     break;
-                case "A5":
+                case MSG_RCV_OK:
                     res = "Confirm";
                     break;
-                case "04":
+                case ASK_COUNT_DEVS:
                     res = "Ask Dev count";
                     break;
-                case "05":
-                case "11":
-                    res = decodeCmd(String.copyValueOf(logString.toCharArray(), 3, logString.length()-3));
+                case SET_W_COMMAND:
+                case MSG_RE_SENT_W:
+                    res = decodeCmd(Arrays.copyOfRange(data, 8, data.length));
                     break;
-                case "DD":
+                case CMD_KEEP_LINK:
                     res = "keep link";
                     break;
-                case "DF":
+                case 0xDF:
                     res = "answer keep link";
                     break;
-                case "0A":
+                case ASK_COUNT_SENSORS:
                     res = "ask sensor count";
                     break;
-                case "19":
-                    res = "IP is " + String.copyValueOf(logString.toCharArray(), 3, logString.length()-6);
+                case MSG_ANSW_IP:
+                    subData = Arrays.copyOfRange(data, 8, data.length);
+                    res = "IP is " + byteArrayToHex(subData, subData.length);
                     break;
-                case "1A":
-                    res = "sensors count " + String.copyValueOf(logString.toCharArray(), 3, 2);
+                case MSG_LIST_SENSORS:
+                    res = "sensors count " + byteToHex(data[8]);
                     break;
-                case "00":
-                    res = "**";
+                case 0:
+                    res = "00";
                     break;
             }
             return res;
         }
 
-        private String decodeCmd(String cmdStr){
+        private String decodeCmd(byte[] wdata){
             String res;
-            String dev = String.copyValueOf(cmdStr.toCharArray(), 0, 2);
+            byte[] sub;
+            String dev = byteToHex(wdata[0]);
             String bcdev = "";
-            String cmd = String.copyValueOf(cmdStr.toCharArray(), 6, 2);
-            String data = String.copyValueOf(cmdStr.toCharArray(), 9, cmdStr.length()-9);
+            int cmd = wdata[2]&0xFF;
+            sub = Arrays.copyOfRange(wdata, 3, wdata.length);
+            String data = byteArrayToHex(sub, sub.length);
+//                    String.copyValueOf(cmdStr.toCharArray(), 9, cmdStr.length()-9);
             String bcdata = "";
             if (dev.equals("7F")){
                 res = "BC: ";
-                bcdev = String.copyValueOf(cmdStr.toCharArray(), 9, 2);
-                bcdata = String.copyValueOf(cmdStr.toCharArray(), 12, cmdStr.length()-12);
+                sub = Arrays.copyOfRange(wdata, 4, wdata.length);
+                bcdev = byteToHex(wdata[3]);
+                bcdata = byteArrayToHex(sub, sub.length);
 
             }
             else
                 res = "Dev " + dev + ": ";
 
             switch (cmd){
-                case "9E":
+                case CMD_ASK_TYPE:
                     res += "Ask type";
                     break;
-                case "6E":
+                case MSG_DEV_TYPE:
                     res += "type is " + data;
                     break;
-                case "C0":
+                case CMD_ASK_DEVICE_KIND:
                     res += "ask dev kind";
                     break;
-                case "CF":
+                case MSG_DEVICE_KIND:
                     res += "dev kind is " + data;
                     break;
-                case "97":
+                case CMD_ASK_SENSOR_STATE:
                     res += "ask sensor state";
                     break;
-                case "67":
+                case MSG_SENSOR_STATE:
                     res += "sensor state is " + data;
                     break;
-                case "91":
+                case CMD_ASK_STATE:
                     res += "ask state";
                     break;
-                case "61":
+                case MSG_STATE:
                     res += "state of " + bcdev + " is " + bcdata;
                     break;
-                case "63":
+                case MSG_ACT_INPUT:
                     res += "at " + bcdev + " activate input " + bcdata;
                     break;
-                case "64":
+                case MSG_OUT_STATE:
                     res += "out state of " + bcdev + " is " + bcdata;
                     break;
-                case "88":
-                    if (cmdStr.length()>15){
-                        bcdev = String.copyValueOf(cmdStr.toCharArray(), 15, 2);
+                case CMD_SEND_COMMAND:
+                    if (wdata.length>5){
+                        bcdev = byteToHex(wdata[5]);
                     }else{
                         bcdev = "itself";
                     }
-                    bcdata = String.copyValueOf(cmdStr.toCharArray(), 9, 5);
+                    bcdata = String.valueOf((wdata[3]&0xFF) * 0x100 + wdata[4]&0xFF);
                     res += "command "+ bcdata + " from " + bcdev;
                     break;
-                case "00":
-                    res += "--";
+                case 0:
+                    res += "00";
                     break;
             }
             return res;
         }
-
-//        public void setSelect(int position){
-//            this.selection = position;
-//        }
-
-//        public int getSelect(){
-//            return this.selection;
-//        }
 
 
     }

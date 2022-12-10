@@ -26,6 +26,8 @@ class UDPserver {
     private static final int SIGN_PASS       =  0xAFA55A;
     private static final int SIGN_PORT       =  16133;
     private static final int MSG_RCV_OK      =  0xA5;
+    private static final int CMD_KEEP_LINK   =  0xDD;
+    private static final int KEEP_LINK_OK    =  0xDF;
     private static final int NO_CONFIRM      =  0xFF;
 
     private static final int localPort = 55550;
@@ -54,6 +56,8 @@ class UDPserver {
 
     public List<WaitPacket> waitBuf = new ArrayList<>();
 
+    public List<LogRecord> log = new ArrayList<>();
+
 
     UDPserver(Context context, int pass, UDPlistener uL){
         this.context = context;
@@ -79,86 +83,86 @@ class UDPserver {
 
 
     void start(){
-        new Thread(new Runnable(){
+        new Thread(() -> {
+            try {
+                DatagramSocket sUDP = new DatagramSocket(null);
+                sUDP.setReuseAddress(true);
+                sUDP.bind(new InetSocketAddress(localPort));
 
-            @Override
-            public void run() {
-                try {
-                    DatagramSocket sUDP = new DatagramSocket(null);
-                    sUDP.setReuseAddress(true);
-                    sUDP.bind(new InetSocketAddress(localPort));
-
-                    byte[] inData = new byte[512];
-                    while (true){
-                        DatagramPacket inUDP = new DatagramPacket(inData, inData.length);    // first 3 bytes - pass
-                        sUDP.receive(inUDP);                                                // next byte - packet ID, next - attempt, next 2 - reserved
-                        int len = inUDP.getLength();                                        // total - 7
-                        if (len>7){
-                            int ps = (((inData[0]&0xFF) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
-                            if (ps == pass){
-                                if ((inData[4]&0xFF)!=NO_CONFIRM){
-                                    currentID++;
-                                    byte[] buf = {(byte) MSG_RCV_OK};
-                                    Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
-                                    send(buf, (byte) NO_CONFIRM, 0, 0);
-                                }
-                                if ((inData[3]&0xFF)!=lastID){
+                byte[] inData = new byte[512];
+                while (true){
+                    DatagramPacket inUDP = new DatagramPacket(inData, inData.length);    // first 3 bytes - pass
+                    sUDP.receive(inUDP);                                                // next byte - packet ID, next - attempt, next 2 - reserved
+                    int len = inUDP.getLength();                                        // total - 7
+                    if (len>7){
+                        int ps = (((inData[0]&0xFF) << 16) +((inData[1]&0xFF)<<8)+(inData[2]&0xFF));
+                        if (ps == pass){
+                            if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                currentID++;
+                                byte[] buf = {(byte) MSG_RCV_OK};
+                                Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                send(buf, (byte) NO_CONFIRM, 0, 0);
+                            }
+                            if ((inData[3]&0xFF)!=lastID){
 //                                    workBuff = Arrays.copyOfRange(inData,7,len);
-                                    lastID= (byte) (inData[3]&0xFF);
-                                    Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
+                                lastID= (byte) (inData[3]&0xFF);
+                                Log.i(TAG, " In:  "+ byteArrayToHex(inData, len));
 
-                                    int wInd = getWaitIndex(inData[7]&0xFF, inData[10]&0xFF);
-                                    if (wInd>=0){
-                                        waitBuf.get(wInd).packet = Arrays.copyOfRange(inData,0,len);
-                                        waitBuf.get(wInd).received=true;
-                                    }
+                                if ((inData[7]&0xFF) != KEEP_LINK_OK){
+                                    log.add(new LogRecord(Arrays.copyOfRange(inData, 0, len), false));
+                                }
 
-                                    Bundle bundle = new Bundle();
-                                    Message msg = handler.obtainMessage();
-                                    bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
+                                int wInd = getWaitIndex(inData[7]&0xFF, inData[10]&0xFF);
+                                if (wInd>=0){
+                                    waitBuf.get(wInd).packet = Arrays.copyOfRange(inData,0,len);
+                                    waitBuf.get(wInd).received=true;
+                                }
+
+                                Bundle bundle = new Bundle();
+                                Message msg = handler.obtainMessage();
+                                bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
 //                                    bundle.putInt("NewPacketID", pIndex);
-                                    msg.setData(bundle);
-                                    handler.sendMessage(msg);
+                                msg.setData(bundle);
+                                handler.sendMessage(msg);
 
 
-                                }
-                                else{
-                                    Log.i(TAG, " Receive repeat work:  "+ inData[4]);
-                                }
                             }
-                            if (ps == SIGN_PASS){
-                                if ((inData[4]&0xFF)!=NO_CONFIRM){
-                                    currentID++;
-                                    byte[] buf = {(byte) MSG_RCV_OK};
-                                    Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
-                                    sendToSignal(buf);
-                                }
-                                if ((inData[3]&0xFF)!=lastID){
-                                    signBuff = Arrays.copyOfRange(inData,7,len);
-                                    lastID= (byte) (inData[3]&0xFF);
-                                    Log.i(TAG, " In from Sign:  "+ byteArrayToHex(inData, len));
-
-                                    signUDPok = true;
-
-
-                                }
-                                else{
-                                    Log.i(TAG, " Receive repeat signal:  "+ inData[4]);
-                                }
-                            }
-                            if ((ps & 0xFFFF00) == 0x010100){                   // STUN responce
-                                stunBuff = Arrays.copyOf(inData, len);
-                                stunUDPok = true;
-                                Log.i(TAG, "In from STUN:  "+ byteArrayToHex(inData, len));
-
+                            else{
+                                Log.i(TAG, " Receive repeat work:  "+ inData[4]);
                             }
                         }
-                   }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                        if (ps == SIGN_PASS){
+                            if ((inData[4]&0xFF)!=NO_CONFIRM){
+                                currentID++;
+                                byte[] buf = {(byte) MSG_RCV_OK};
+                                Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
+                                sendToSignal(buf);
+                            }
+                            if ((inData[3]&0xFF)!=lastID){
+                                signBuff = Arrays.copyOfRange(inData,7,len);
+                                lastID= (byte) (inData[3]&0xFF);
+                                Log.i(TAG, " In from Sign:  "+ byteArrayToHex(inData, len));
 
+                                signUDPok = true;
+
+
+                            }
+                            else{
+                                Log.i(TAG, " Receive repeat signal:  "+ inData[4]);
+                            }
+                        }
+                        if ((ps & 0xFFFF00) == 0x010100){                   // STUN responce
+                            stunBuff = Arrays.copyOf(inData, len);
+                            stunUDPok = true;
+                            Log.i(TAG, "In from STUN:  "+ byteArrayToHex(inData, len));
+
+                        }
+                    }
+               }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
+
         }).start();
         new Thread(new Runnable() {
             @Override
@@ -265,6 +269,9 @@ class UDPserver {
                 outData[5] = 0;
                 outData[6] = 0;
                 Log.i(TAG, " Out: "+  destIP + " : "+destPort+" - "+byteArrayToHex(outData, outData.length));
+                if ((outData[7]&0xFF) != CMD_KEEP_LINK){
+                    log.add(new LogRecord(outData, true));
+                }
                 try (DatagramSocket socketUDP = new DatagramSocket(null)) {
                     socketUDP.setReuseAddress(true);
                     socketUDP.bind(new InetSocketAddress(localPort));

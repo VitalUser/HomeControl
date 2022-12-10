@@ -86,20 +86,20 @@ public class SensorDevice implements Parcelable {
     }
 
     public void setData(byte[] indData){
-        int count = (indData[2] & 0xFF)-3;
-        byte[] data = Arrays.copyOfRange(indData, 5, count+5);
+//        int count = (indData[2] & 0xFF)-3;
+//        byte[] data = Arrays.copyOfRange(indData, 5, count+5);
         switch (mModel){
             case IS_DS18B20:
-                this.mTemp = ((data[0]&0xFF)<<8)|(data[1]&0xFF);
+                this.mTemp = ((indData[0]&0xFF)<<8)|(indData[1]&0xFF);
                 break;
             case IS_SHT21:
-                this.mTemp = ((data[0]&0xFF)<<8)|(data[1]&0xFF);
-                this.mHum = ((data[2]&0xFF)<<8)|(data[3]&0xFF);
+                this.mTemp = ((indData[0]&0xFF)<<8)|(indData[1]&0xFF);
+                this.mHum = ((indData[2]&0xFF)<<8)|(indData[3]&0xFF);
                 break;
 
             case IS_BMP180:
-                this.mTemp = ((data[0]&0xFF)<<8)|(data[1]&0xFF);
-                this.mPress = ((data[2]&0xFF)<<16)|((data[3]&0xFF)<<8)|(data[4]&0xFF);
+                this.mTemp = ((indData[0]&0xFF)<<8)|(indData[1]&0xFF);
+                this.mPress = ((indData[2]&0xFF)<<16)|((indData[3]&0xFF)<<8)|(indData[4]&0xFF);
                 break;
         }
     }
