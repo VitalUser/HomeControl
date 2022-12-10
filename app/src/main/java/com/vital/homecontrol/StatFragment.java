@@ -46,7 +46,7 @@ public class StatFragment extends AppCompatDialogFragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        act = (MainActivity) getActivity();
+//        act = (MainActivity) getActivity();
 
     }
 
