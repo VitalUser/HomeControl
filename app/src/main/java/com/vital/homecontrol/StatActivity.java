@@ -5,9 +5,9 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.Nullable;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
 import android.text.InputType;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -18,7 +18,6 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-import com.jjoe64.graphview.DefaultLabelFormatter;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
@@ -26,16 +25,12 @@ import com.jjoe64.graphview.series.LineGraphSeries;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
-import static com.vital.homecontrol.MainActivity.CMD_MSG_ANALOG_DATA;
 import static com.vital.homecontrol.MainActivity.CMD_SEND_COMMAND;
 import static com.vital.homecontrol.MainActivity.MSG_DEVICE_KIND;
 import static com.vital.homecontrol.MainActivity.MSG_DEV_TYPE;
 import static com.vital.homecontrol.MainActivity.MSG_OUT_STATE;
-import static com.vital.homecontrol.MainActivity.MSG_RE_SENT_W;
 import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_STATE;
 

@@ -16,26 +16,25 @@ import android.content.res.Configuration;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v4.view.ViewPager;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.viewpager.widget.ViewPager;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
-import android.support.design.widget.TabLayout;
+import com.google.android.material.tabs.TabLayout;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,7 +67,6 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Timer;
@@ -348,39 +346,36 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
         cardEnable = false;
         if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){        // API23, Android 6.0
-                cardEnable = (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED);
-                if (!cardEnable){
+            // API23, Android 6.0
+            cardEnable = (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED);
+            if (!cardEnable){
 //                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    if (!extDenied) {
-                        Log.i(TAG, "shouldShowRequestPermissionRationale");
-                        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
-                        TextView text = new TextView(this);
-                        text.setText(R.string.write_permit);
-                        text.setGravity(Gravity.CENTER);
-                        dlg.setView(text);
-                        dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_PERMISSION);
+                if (!extDenied) {
+                    Log.i(TAG, "shouldShowRequestPermissionRationale");
+                    AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+                    TextView text = new TextView(this);
+                    text.setText(R.string.write_permit);
+                    text.setGravity(Gravity.CENTER);
+                    dlg.setView(text);
+                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_PERMISSION);
 
-                            }
-                        });
-                        dlg.setNegativeButton("No", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                extDenied = true;
-                                SharedPreferences.Editor editor = prefs.edit();
-                                editor.putBoolean("key_ExtMemDenied", extDenied);
-                                editor.apply();
-                                dialog.cancel();
-                            }
-                        });
-                        dlg.show();
-                    }
+                        }
+                    });
+                    dlg.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            extDenied = true;
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putBoolean("key_ExtMemDenied", extDenied);
+                            editor.apply();
+                            dialog.cancel();
+                        }
+                    });
+                    dlg.show();
                 }
-            }else{
-                cardEnable =true;
             }
         }
         if (cardEnable){
@@ -476,11 +471,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_WRITE_PERMISSION) {
             // https://stackoverflow.com/questions/15564614/how-to-restart-an-android-application-programmatically
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 extDenied = false;
-                cardEnable =true;
+                cardEnable = true;
                 Bundle bundle = new Bundle();
                 Message msg = handler.obtainMessage();
                 bundle.putInt("ThreadEnd", MSG_NEED_CHECK_SETTINGS);

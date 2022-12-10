@@ -1,20 +1,17 @@
 package com.vital.homecontrol;
 
 //import android.app.AlertDialog;
-import android.support.v7.app.AlertDialog;
-import android.app.Dialog;
-import android.content.DialogInterface;
+import androidx.appcompat.app.AlertDialog;
+
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatDialogFragment;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.content.ContextCompat;
-import android.support.v4.view.ViewCompat;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatDialogFragment;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.jjoe64.graphview.GraphView;
@@ -57,7 +54,7 @@ public class StatFragment extends AppCompatDialogFragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.stat_layout, container, false);
 
-        getDialog().setTitle("Statistic");
+        Objects.requireNonNull(getDialog()).setTitle("Statistic");
 
         graph = view.findViewById(R.id.stat_graf);
 
