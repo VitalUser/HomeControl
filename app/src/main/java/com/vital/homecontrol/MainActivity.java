@@ -12,7 +12,9 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
@@ -60,10 +62,12 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
@@ -229,8 +233,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private int curserial;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
-    public int lastCommand = 0;
-    public int changedState = 0;
+//    public int lastCommand = 0;
+//    public int changedState = 0;
     private String theme;
     private int timeout;
     private boolean sucsessReadMem;
@@ -285,6 +289,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         progressLinkDevs = findViewById(R.id.progressDevs);
         progressLinkDevs.setProgress(0);
         progressLinkDevs.setMax(0);
+        progressLinkDevs.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
+//        progressLinkDevs.setBackgroundTintList(ColorStateList.valueOf(Color.RED));
 
         if (config==null){
             config = new Config(this.getFilesDir().toString());
@@ -503,8 +509,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         outState.putBoolean(STATE_REMOTE, remote);
         outState.putParcelableArrayList(STATE_EXECDEVS, (ArrayList<? extends Parcelable>) execDevs);
         outState.putParcelableArrayList(STATE_SENSORS, (ArrayList<? extends Parcelable>) sensors);
-        outState.putInt(STATE_LASTSMD, lastCommand);
-        outState.putInt(STATE_LASTCHNG, changedState);
+//        outState.putInt(STATE_LASTSMD, lastCommand);
+//        outState.putInt(STATE_LASTCHNG, changedState);
         outState.putString(STATE_LICONIP, liconIP);
         super.onSaveInstanceState(outState);
     }
@@ -518,8 +524,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         remote = savedInstanceState.getBoolean(STATE_REMOTE);
         execDevs = savedInstanceState.getParcelableArrayList(STATE_EXECDEVS);
         sensors = savedInstanceState.getParcelableArrayList(STATE_SENSORS);
-        lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
-        changedState = savedInstanceState.getInt(STATE_LASTCHNG);
+//        lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
+//        changedState = savedInstanceState.getInt(STATE_LASTCHNG);
         liconIP = savedInstanceState.getString(STATE_LICONIP);
     }
 
@@ -1425,6 +1431,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         new Thread(new Runnable() {
             @Override
             public void run() {
+                byte[] devs = {};
+                byte[] sens = {};
                 curserial=-1;
                 byte[] outBuf = {(byte) CMD_ASK_TYPE};
                 askUDP(outBuf, MSG_DEV_TYPE, 0);
@@ -1436,17 +1444,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     if (ind>=0){
                         int devsCount = sUDP.waitBuf.get(ind).packet[8];
                         Log.i(TAG, " get List Devices: "+ devsCount);
-                        progressLinkDevs.setMax(progressLinkDevs.getMax() + devsCount);
-
-                        int[] devs = new int[devsCount];
-                        for (int i = 0; i <devsCount ; i++) {
-                            devs[i]=sUDP.waitBuf.get(ind).packet[9+i];
-                        }
+                        devs = new byte[devsCount];
+                        System.arraycopy(sUDP.waitBuf.get(ind).packet, 9, devs, 0, devsCount);
                         Log.i(TAG, " get List Devices: "+ devsCount);
-                        for (int i = 0; i <devsCount; i++) {
-                            byte[] bufCount = {SET_W_COMMAND, (byte) devs[i], 2, (byte) CMD_ASK_TYPE};
-                            askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
-                        }
                     }
                 }
 
@@ -1455,47 +1455,54 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     int ind = sUDP.getWaitIndex(MSG_LIST_SENSORS, 0);
                     if (ind>=0){
                         int sensCount = sUDP.waitBuf.get(ind).packet[8];
-                        int[] sens = new int[sensCount];
-                        for (int i = 0; i <sensCount ; i++) {
-                            sens[i]=sUDP.waitBuf.get(ind).packet[9+i];
-                        }
-                        progressLinkDevs.setMax(progressLinkDevs.getMax() + sensCount);
+                        sens = new byte[sensCount];
+                        System.arraycopy(sUDP.waitBuf.get(ind).packet, 9, sens, 0, sensCount);
                         Log.i(TAG, " get List Sensors: "+ sensCount);
-                        for (int i = 0; i <sensCount; i++) {
-                            byte[] bufCount = {SET_W_COMMAND, (byte) sens[i], 2, (byte) CMD_ASK_DEVICE_KIND};
-                            if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)){
-                                int snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_DEVICE_KIND);
-                                if (snd>=0){
-                                    int devN = sUDP.waitBuf.get(snd).packet[8];
-                                    int sInd = getSnsIndex(devN);
-                                    if (sInd<0){
-                                        sInd=sensors.size();
-                                        sensors.add(new SensorDevice(devN, sUDP.waitBuf.get(snd).packet[11]));
-//                                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
-                                    }
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
-                                        }
-                                    });
-                                    byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
-                                    if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)){
-                                        snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
-                                        if (snd>=0){
-                                            int count = sUDP.waitBuf.get(snd).packet[9]-3;
-//                                        byte[] buf = sUDP.getWBpart(5, count+5);
-                                            byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(snd).packet, 12, count+12);
-                                            sensors.get(sInd).setData(buf);
-                                            Log.i(TAG, "MSG_SENSOR_STATE in Main");
+                    }
+                }
+                progressLinkDevs.setMax(devs.length + sens.length);
 
-                                        }
-                                    }
+                for (byte dev : devs) {
+                    byte[] bufCount = {SET_W_COMMAND, (byte) dev, 2, (byte) CMD_ASK_TYPE};
+                    askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            progressLinkDevs.incrementProgressBy(1);
+                        }
+                    });
+                }
+
+                for (byte sen : sens) {
+                    byte[] bufCount = {SET_W_COMMAND, (byte) sen, 2, (byte) CMD_ASK_DEVICE_KIND};
+                    if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)) {
+                        int snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_DEVICE_KIND);
+                        if (snd >= 0) {
+                            int devN = sUDP.waitBuf.get(snd).packet[8];
+                            int sInd = getSnsIndex(devN);
+                            if (sInd < 0) {
+                                sInd = sensors.size();
+                                sensors.add(new SensorDevice(devN, sUDP.waitBuf.get(snd).packet[11]));
+                            }
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    progressLinkDevs.incrementProgressBy(1);
+                                }
+                            });
+                            byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
+                            if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)) {
+                                snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
+                                if (snd >= 0) {
+                                    int count = sUDP.waitBuf.get(snd).packet[9] - 3;
+                                    byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(snd).packet, 12, count + 12);
+                                    sensors.get(sInd).setData(buf);
+                                    Log.i(TAG, "MSG_SENSOR_STATE in Main");
 
                                 }
                             }
-                        }
 
+                        }
                     }
                 }
 
@@ -1512,7 +1519,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 buffTime[7] = (byte) cl.get(Calendar.MINUTE);
                 buffTime[8] = (byte) cl.get(Calendar.SECOND);
                 askUDP(buffTime, MSG_RCV_OK, 0);
-//                waitForConfirm(buffTime);
+
+                Date d = cl.getTime();
+                SimpleDateFormat sdf = new SimpleDateFormat("yy-mm-dd hh:mm");
+                String s = sdf.format(d);
+                Log.i(TAG, s);
+                d.setTime(d.getTime() - 5000);
+                s = sdf.format(d);
+                Log.i(TAG, s);
 
                 for (int i = 0; i <execDevs.size() ; i++) {
                     byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
@@ -1583,10 +1597,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         int devInd;
         switch (cmd){
             case MSG_DEV_TYPE:
-                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
+//                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
                 int outsCount = buf[6]&0xFF;
-//                if (!devsFound.contains(buf[1]&0xFF))
-//                    devsFound.add(buf[1]&0xFF);
                 if (outsCount>0){                 // add only OutCount>0
                     if (getDevIndex(buf[1]&0xFF)<0){
                         int ind = execDevs.size();
@@ -1608,12 +1620,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 int devN = buf[4]&0xFF;
                 devInd = getDevIndex(devN);
                 if (devInd>=0){
-                    byte prevState = execDevs.get(devInd).getOutState();
-                    int diff = ((buf[5]&0xFF)^prevState)&0xFF;
-                    if (diff != 0){
-                        changedState = devN*0x100 + diff;
-                        Log.i(TAG, " Main, changedState = "+Integer.toHexString(changedState) );
-                    }
+//                    byte prevState = execDevs.get(devInd).getOutState();
+//                    int diff = ((buf[5]&0xFF)^prevState)&0xFF;
+//                    if (diff != 0){
+//                        changedState = devN*0x100 + diff;
+//                        Log.i(TAG, " Main, changedState = "+Integer.toHexString(changedState) );
+//                    }
                     execDevs.get(devInd).setOutState((byte) (buf[5]&0xFF));
                 }
 
@@ -1627,7 +1639,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 break;
 
             case MSG_DEVICE_KIND:
-                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
+//                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
                 devN = buf[1] & 0xFF;
                 if (devN>0x3F && devN<0x60) {               // is sensor (0x40..0x5F)
                     devInd = getSnsIndex(devN);
@@ -1642,8 +1654,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 break;
 
             case CMD_SEND_COMMAND:
-                lastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
-                Log.i(TAG, " lastCommand = "+lastCommand );
+//                lastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
+//                Log.i(TAG, " lastCommand = "+lastCommand );
                 break;
 
             case CMD_MSG_ANALOG_DATA:
@@ -1678,9 +1690,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
 
         }
-//        String txt = getLastCommand() + " | " + getDevNumChange() +" | " +getMaskChange();
-//        statusText.setText(txt);
-
     }
 
     public void sendCommand(int cmd){
@@ -1693,35 +1702,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
-    /*
-    public void drawRcvStatus(int attempt, boolean result){
-        final SpannableStringBuilder text = new SpannableStringBuilder("*****");
-        final ForegroundColorSpan styleRed = new ForegroundColorSpan(Color.rgb(255, 0, 0));
-        final ForegroundColorSpan styleGreen = new ForegroundColorSpan(Color.rgb(0, 255, 0));
-        final ForegroundColorSpan styleGrey = new ForegroundColorSpan(Color.rgb(32, 32, 32));
-        if (result){
-            text.setSpan(styleRed, 0, attempt-1, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            text.setSpan(styleGreen, attempt-1, attempt, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            text.setSpan(styleGrey, attempt+1, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-
-        }else{
-            if (attempt==0){
-                text.setSpan(styleGrey, 0, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            }else{
-                text.setSpan(styleRed, 0, attempt, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-                text.setSpan(styleGrey, attempt+1, 4, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            }
-
-        }
-        statusText.setText(text);
-    }
-
-     */
-
-
     public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
         if (netInfo!=null){
-//            logList.add("S: " + byteArrayToHex(inBuf, inBuf.length));
             if (hostCmd==MSG_RCV_OK)
                 sUDP.incCurrentID();
             for (int i = 1; i <4 ; i++) {
@@ -1812,115 +1794,107 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 
     private void askLiConData(){
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                byte[] ask = {0, 0, 0, 1, ASK_FOR_DATA};
-                int port = 55300;
-                boolean doRead = true;
-                try {
-                    Socket socket = new Socket(liconIP, port);
-                    OutputStream os = socket.getOutputStream();
-                    os.write(ask, 0, ask.length);
-                    os.flush();
+        new Thread(() -> {
+            byte[] ask = {0, 0, 0, 1, ASK_FOR_DATA};
+            int port = 55300;
+            boolean doRead = true;
+            try {
+                Socket socket = new Socket(liconIP, port);
+                OutputStream os = socket.getOutputStream();
+                os.write(ask, 0, ask.length);
+                os.flush();
 
 //                    InputStream is;
-                    while (doRead){
-                        InputStream is = socket.getInputStream();
-                        int first = is.read();
-                        int count;
-                        switch (first){
-                            case DATA_NOT_LOAD:
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(getApplicationContext(), getText(R.string.no_licon_data), Toast.LENGTH_LONG).show();
-                                    }
-                                });
-                                Log.i(TAG, " From LoCon:  project not load");
-                                doRead=false;
-                                is.close();
-                                break;
-                                /*
-                            case DATA_SUCSESS:
-                                count = is.available();
-                                Log.i(TAG, " From LoCon:  got data sucsess, count = " + count);
-                                clonePrefs();
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
-                                    }
-                                });
-                                is.close();
-                                doRead=false;
-                                break;
+                while (doRead){
+                    InputStream is = socket.getInputStream();
+                    int first = is.read();
+                    int count;
+                    switch (first){
+                        case DATA_NOT_LOAD:
+                            runOnUiThread(() -> Toast.makeText(getApplicationContext(), getText(R.string.no_licon_data), Toast.LENGTH_LONG).show());
+                            Log.i(TAG, " From LoCon:  project not load");
+                            doRead=false;
+                            is.close();
+                            break;
+                            /*
+                        case DATA_SUCSESS:
+                            count = is.available();
+                            Log.i(TAG, " From LoCon:  got data sucsess, count = " + count);
+                            clonePrefs();
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
+                                }
+                            });
+                            is.close();
+                            doRead=false;
+                            break;
 
-                                 */
-                            case LICON_NAMES:
-                                count = is.available();
-                                byte[] cb = new byte[count];
-                                count = is.read(cb, 0, count);
-                                File file = new File(getApplicationContext().getFilesDir().toString(), "OutNames");
-                                FileOutputStream fos = new FileOutputStream(file);
-                                fos.write(cb, 0, count);
-                                fos.flush();
-                                fos.close();
+                             */
+                        case LICON_NAMES:
+                            count = is.available();
+                            byte[] cb = new byte[count];
+                            count = is.read(cb, 0, count);
+                            File file = new File(getApplicationContext().getFilesDir().toString(), "OutNames");
+                            FileOutputStream fos = new FileOutputStream(file);
+                            fos.write(cb, 0, count);
+                            fos.flush();
+                            fos.close();
 //                                SharedPreferences.Editor editor = prefs.edit();
 //                                editor.putString("key_names", file.getName());
 //                                editor.apply();
-                                namesFile.load(new FileInputStream(file));
-                                for (int ind = 0; ind<execDevs.size(); ind++){
-                                    int outsCount = execDevs.get(ind).getOutCount();
-                                    if (outsCount>0){
-                                        for (int i = 0; i <outsCount ; i++) {
-                                            if (execDevs.get(ind).getLampText(i).equals("")){
-                                                String dkey = String.format(Locale.getDefault(), "D%03d%02d", execDevs.get(ind).getDevNum(), i+1);
-                                                String key = namesFile.getProperty(dkey, "");
-                                                if (!key.equals("")){
-                                                    execDevs.get(ind).setLampText(i, key);
-                                                }
+                            namesFile.load(new FileInputStream(file));
+                            for (int ind = 0; ind<execDevs.size(); ind++){
+                                int outsCount = execDevs.get(ind).getOutCount();
+                                if (outsCount>0){
+                                    for (int i = 0; i <outsCount ; i++) {
+                                        if (execDevs.get(ind).getLampText(i).equals("")){
+                                            String dkey = String.format(Locale.getDefault(), "D%03d%02d", execDevs.get(ind).getDevNum(), i+1);
+                                            String key = namesFile.getProperty(dkey, "");
+                                            if (!key.equals("")){
+                                                execDevs.get(ind).setLampText(i, key);
                                             }
                                         }
-
                                     }
-                                 }
+
+                                }
+                             }
 //                                clonePrefs();
-                                is.close();
-                                doRead=false;
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
-                                    }
-                                });
-                                Log.i(TAG, " From LoCon:  got names, count = " + count);
-                                break;
-                                /*
-                            case CMD_DATA:
-                                count = is.available();
-                                byte[] cmb = new byte[count];
-                                count = is.read(cmb, 0, count);
-                                File fcmd = new File(getApplicationContext().getFilesDir().toString(), "Commands");
-                                FileOutputStream fcos = new FileOutputStream(fcmd);
-                                fcos.write(cmb, 0, count);
-                                fcos.flush();
-                                fcos.close();
-                                editor.putString("key_commands", fcmd.getName());
-                                editor.apply();
-                                Log.i(TAG, " From LiCon:  got commands data, count = " + count);
-                                break;
+                            is.close();
+                            doRead=false;
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
+                                }
+                            });
+                            Log.i(TAG, " From LoCon:  got names, count = " + count);
+                            break;
+                            /*
+                        case CMD_DATA:
+                            count = is.available();
+                            byte[] cmb = new byte[count];
+                            count = is.read(cmb, 0, count);
+                            File fcmd = new File(getApplicationContext().getFilesDir().toString(), "Commands");
+                            FileOutputStream fcos = new FileOutputStream(fcmd);
+                            fcos.write(cmb, 0, count);
+                            fcos.flush();
+                            fcos.close();
+                            editor.putString("key_commands", fcmd.getName());
+                            editor.apply();
+                            Log.i(TAG, " From LiCon:  got commands data, count = " + count);
+                            break;
 
-                                 */
-                        }
+                             */
+                    }
 //                        is.close();
 
-                    }
-                    os.close();
-                    socket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
+                os.close();
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }).start();
     }
@@ -1985,17 +1959,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         return str.toString().toUpperCase();
     }
 
-    public int getDevNumChange(){
-        return (this.changedState>>8)&0xFF;
-    }
-
-    public int getMaskChange(){
-        return this.changedState&0xFF;
-    }
-
-    public int getLastCommand(){
-        return this.lastCommand;
-    }
 
     private void copyFile(String sourceFile, String destFile) {
         File from = new File(sourceFile);
@@ -2167,8 +2130,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         private String decodeContent(byte[] data){
             String res = "";
             byte[] subData;
-//            String byte1 = String.copyValueOf(logString.toCharArray(), 0, 2);
-//            String byte2 = String.copyValueOf(logString.toCharArray(), 3, 2);
             switch (data[7]&0xFF){
                 case ASK_IP:
                     res = "Ask IP";
@@ -2227,7 +2188,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             int cmd = wdata[2]&0xFF;
             sub = Arrays.copyOfRange(wdata, 3, wdata.length);
             String data = byteArrayToHex(sub, sub.length);
-//                    String.copyValueOf(cmdStr.toCharArray(), 9, cmdStr.length()-9);
             String bcdata = "";
             if (dev.equals("7F")){
                 res = "BC: ";

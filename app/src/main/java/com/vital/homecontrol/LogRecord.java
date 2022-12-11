@@ -2,8 +2,8 @@ package com.vital.homecontrol;
 
 public class LogRecord {
 
-    private boolean misSend;
-    private byte[] mdata;
+    private final boolean misSend;
+    private final byte[] mdata;
 
     public LogRecord(byte[] data, boolean isSend){
         mdata = data;

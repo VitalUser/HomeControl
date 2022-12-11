@@ -109,4 +109,5 @@
     <string name="canRotate">Allow rotate screen</string>
     <string name="showLog">Show Log</string>
     <string name="ok">OK</string>
+    <string name="count">Data count</string>
 </resources>

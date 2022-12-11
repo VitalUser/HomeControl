@@ -36,6 +36,8 @@ import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.appcompat.widget.Toolbar;
 
 import java.io.File;
@@ -1000,113 +1002,46 @@ public class PageFragment extends Fragment {
                 return true;
 
             case M_SHOW_STAT:
-//                cInd = getControlIndexByNum(btnNum);
                 int typ = controls.get(cInd).getSensType();
                 int dNum = controls.get(cInd).getNumDev();
                 int model = controls.get(cInd).getSensModel();
-                final int stSensInd = act.getSnsIndex(controls.get(cInd).getNumDev());
-
-                byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
-                act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC);
+                act.pBar.setVisibility(View.VISIBLE);
+                final int stSensInd = act.getSnsIndex(dNum);
 
                 if (stSensInd>=0){
-                    /*
-                    act.sensors.get(stSensInd).mStat.clear();
-                    byte[] bufStat = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
-                    boolean res = act.waitCondition(new Callable<Boolean>() {
-                        @Override
-                        public Boolean call() {
-                            return act.sensors.get(stSensInd).mStat.size()>0;
+                    byte[] stat = {};
+                    byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
+                    if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
+                        int wInd = act.sUDP.getWaitIndex(MSG_RE_SENT_W, CMD_MSG_STATISTIC);
+                        if (wInd>=0){
+                            stat = Arrays.copyOfRange(act.sUDP.waitBuf.get(wInd).packet, 7, act.sUDP.waitBuf.get(wInd).packet.length) ;
+                            Bundle bundle = new Bundle();
+                            String st = "";
+                            switch (typ){
+                                case IS_TEMP:
+                                    st = act.sensors.get(stSensInd).getValue(IS_TEMP);
+                                    break;
+                                case IS_HUM:
+                                    st = act.sensors.get(stSensInd).getValue(IS_HUM);
+                                    break;
+                                case IS_PRESS:
+                                    st = act.sensors.get(stSensInd).getValue(IS_PRESS);
+                                    break;
+                            }
+                            bundle.putString("CurData", st);
+                            bundle.putByteArray("Data", stat);
+                            bundle.putInt("Model", model);
+                            StatFragment statFr = new StatFragment();
+                            statFr.setArguments(bundle);
+                            if (getFragmentManager() != null) {
+                                statFr.show(getFragmentManager(), StatFragment.TAG);
+                            }
                         }
-                    }, bufStat);
-*/
-
-                    Bundle bundle = new Bundle();
-                    bundle.putString("CurData", act.sensors.get(stSensInd).getValue(IS_TEMP));
-                    StatFragment st = new StatFragment();
-                    st.setArguments(bundle);
-                    st.show(getFragmentManager(), StatFragment.TAG);
-
-                    /*
-                    AlertDialog.Builder logDlg = new AlertDialog.Builder(getActivity());
-
-//                    View stat = getLayoutInflater().inflate(R.layout.stat_frame, vGroup, false);
-
-                    View stat = View.inflate(getContext(), R.layout.stat_frame, null);
-                    TextView curTemp = stat.findViewById(R.id.id_curtemp);
-                    TextView xx = stat.findViewById(R.id.txt_period);
-                    xx.setText("txt");
-                    switch (typ){
-                        case IS_TEMP:
-                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_TEMP));
-                            break;
-                        case IS_HUM:
-                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_HUM));
-                            break;
-                        case IS_PRESS:
-                            curTemp.setText(act.sensors.get(stSensInd).getValue(IS_PRESS));
-                            break;
+                    }else{
+                        Toast.makeText(getContext(), "Error, Try again", Toast.LENGTH_SHORT).show();
                     }
-                    logDlg.setNegativeButton("Exit", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            dialogInterface.cancel();
-                        }
-                    });
-                    logDlg.setView(stat);
-                    logDlg.show();
-                   */
-
-
-                    /*
-                    WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
-                    lp.copyFrom(stdlg.getWindow().getAttributes());
-                    lp.width = WindowManager.LayoutParams.MATCH_PARENT;
-                    lp.height = WindowManager.LayoutParams.MATCH_PARENT;
-                    stdlg.show();
-                    stdlg.getWindow().setAttributes(lp);
-*/
                 }
-
-
-
-
-
-                /*
-                byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
-                if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
-
-                    byte[] stat = act.sUDP.getWB();
-                    int count = stat[7]&0xFF;
-                    ArrayList<Float> data = new ArrayList<>();
-                    for (int i = count-1; i >=0 ; i--) {
-                        int val;
-                        if (stat[4] == IS_PRESS) {
-                            val = ((stat[i * 3 + 8] & 0xFF) << 16 | (stat[i * 3 + 9] & 0xFF) << 8 | stat[i * 2 + 10] & 0xFF);
-                        } else {
-                            val = ((stat[i * 2 + 8] & 0xFF) << 8 | stat[i * 2 + 9] & 0xFF);
-                        }
-                        if (val>0){
-                            data.add(getFloatSensorValue(val, model, typ));
-                        }
-                    }
-                    Intent intent = new Intent();
-                    intent.putExtra("snsNum", dNum);
-                    intent.putExtra("statBuff", data);
-                    intent.putExtra("snsType", typ);
-                    intent.putExtra("period", (stat[5]&0xFF)<<8 | stat[6]&0xFF);
-                    intent.putExtra("deviceIP", act.sUDP.getDestIP());
-                    intent.putExtra("devPort", act.sUDP.getDestPort());
-//                    intent.putExtra("localPort", act.localPort);
-                    intent.putExtra("measureTyp", controls.get(cInd).getUpText());
-                    intent.putExtra("snsText", controls.get(cInd).getText());
-                    intent.setClass(act.getApplicationContext(), StatActivity.class);
-                    startActivity(intent);
-                }else{
-                    Toast.makeText(getContext(), "Error, Try again", Toast.LENGTH_SHORT).show();
-                }
-                */
-
+                act.pBar.setVisibility(View.INVISIBLE);
                 return true;
 
             case M_DEL_SNS:
