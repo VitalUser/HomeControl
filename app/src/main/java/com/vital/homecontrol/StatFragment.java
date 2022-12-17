@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatDialogFragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.jjoe64.graphview.DefaultLabelFormatter;
@@ -101,9 +102,22 @@ public class StatFragment extends AppCompatDialogFragment {
                     data.add(getFloatSensorValue(val, model, typ));
                 }
             }
+            if (getDialog()!=null){
+                switch (typ){
+                    case IS_TEMP:
+                        getDialog().setTitle(getString(R.string.temperature));
+                        break;
+                    case IS_HUM:
+                        getDialog().setTitle(getString(R.string.humidity));
+                        break;
+                    case IS_PRESS:
+                        getDialog().setTitle(getString(R.string.pressure));
+                        break;
+                }
+            }
         }
 
-        @SuppressLint("SimpleDateFormat") SimpleDateFormat df = new SimpleDateFormat("yy-MM-dd hh:mm", Locale.getDefault());
+        @SuppressLint("SimpleDateFormat") SimpleDateFormat df = new SimpleDateFormat("E HH:mm", Locale.getDefault());
         @SuppressLint("SimpleDateFormat") SimpleDateFormat dfp = new SimpleDateFormat("dd hh:mm");
 
         DataPoint[] dp = new DataPoint[data.size()];
@@ -144,9 +158,35 @@ public class StatFragment extends AppCompatDialogFragment {
         curTemp = view.findViewById(R.id.id_curtemp);
         curTemp.setText(st);
 
-        valPeriod = view.findViewById(R.id.val_period);
+        Button exitBtn = view.findViewById(R.id.stat_btn_exit);
+        exitBtn.setText(getString(R.string.ok));
+        exitBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dismiss();
+            }
+        });
 
-        st = String.valueOf(period) + " sec";
+        valPeriod = view.findViewById(R.id.val_period);
+        int days = (int) (period / 86400);
+        int daysout = (int) (period % 86400);
+        int hours = daysout / 3600;
+        int hoursout = daysout % 3600;
+        int mins = hoursout / 60;
+        int minsout = hoursout % 60;
+        int sec = minsout % 60;
+
+
+        st = "";
+        if (days>0)
+            st = st + days + getString(R.string.days)+ " ";
+        if (hours>0)
+            st = st + hours + getString(R.string.hours) + ":";
+        if (mins>0)
+            st = st + mins + "m" + ":";
+        st = st + sec + getString(R.string.secs);
+
+
         valPeriod.setText(st);
 
         valCount = view.findViewById(R.id.val_count);

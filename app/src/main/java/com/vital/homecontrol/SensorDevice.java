@@ -24,7 +24,6 @@ public class SensorDevice implements Parcelable {
     private int mTemp;
     private int mHum;
     private int mPress;
-    public List<Byte> mStat = new ArrayList<>();
 
     public SensorDevice(int devNum, int model){
         mDevNum = devNum;
@@ -32,7 +31,6 @@ public class SensorDevice implements Parcelable {
         mTemp = 0xFFFF;
         mHum = 0xFFFF;
         mPress = 0xFFFF;
-        mStat.clear();
     }
 
     public SensorDevice(Parcel in) {
@@ -123,7 +121,7 @@ public class SensorDevice implements Parcelable {
         return modelToString(mModel);
     }
 
-    public String getValue(int sensType){
+    public String getTextValue(int sensType){
         switch (sensType){
             case IS_TEMP:
                 if (mTemp!=0xFFFF){

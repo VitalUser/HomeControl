@@ -110,4 +110,7 @@
     <string name="showLog">Показать Log</string>
     <string name="ok">Ok</string>
     <string name="count">Количество отсчетов</string>
+    <string name="days">д</string>
+    <string name="hours">ч</string>
+    <string name="secs">с</string>
 </resources>

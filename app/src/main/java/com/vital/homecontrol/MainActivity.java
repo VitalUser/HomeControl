@@ -1481,7 +1481,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                             int devN = sUDP.waitBuf.get(snd).packet[8];
                             int sInd = getSnsIndex(devN);
                             if (sInd < 0) {
-                                sInd = sensors.size();
                                 sensors.add(new SensorDevice(devN, sUDP.waitBuf.get(snd).packet[11]));
                             }
                             runOnUiThread(new Runnable() {
@@ -1492,14 +1491,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                             });
                             byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
                             if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)) {
-                                snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
+                                sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
+                                /*
                                 if (snd >= 0) {
                                     int count = sUDP.waitBuf.get(snd).packet[9] - 3;
                                     byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(snd).packet, 12, count + 12);
                                     sensors.get(sInd).setData(buf);
                                     Log.i(TAG, "MSG_SENSOR_STATE in Main");
-
                                 }
+                                */
                             }
 
                         }
@@ -1597,7 +1597,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         int devInd;
         switch (cmd){
             case MSG_DEV_TYPE:
-//                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
                 int outsCount = buf[6]&0xFF;
                 if (outsCount>0){                 // add only OutCount>0
                     if (getDevIndex(buf[1]&0xFF)<0){
@@ -1617,30 +1616,12 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
                 break;
             case MSG_OUT_STATE:
-                int devN = buf[4]&0xFF;
-                devInd = getDevIndex(devN);
-                if (devInd>=0){
-//                    byte prevState = execDevs.get(devInd).getOutState();
-//                    int diff = ((buf[5]&0xFF)^prevState)&0xFF;
-//                    if (diff != 0){
-//                        changedState = devN*0x100 + diff;
-//                        Log.i(TAG, " Main, changedState = "+Integer.toHexString(changedState) );
-//                    }
-                    execDevs.get(devInd).setOutState((byte) (buf[5]&0xFF));
-                }
-
                 break;
             case MSG_STATE:
-                devN = buf[4]&0xFF;
-                devInd = getDevIndex(devN);
-                if (devInd>=0){
-                    execDevs.get(devInd).setOutState((byte) (buf[5]&0xFF));
-                }
                 break;
 
             case MSG_DEVICE_KIND:
-//                progressLinkDevs.setProgress(progressLinkDevs.getProgress()+1);
-                devN = buf[1] & 0xFF;
+                int devN = buf[1] & 0xFF;
                 if (devN>0x3F && devN<0x60) {               // is sensor (0x40..0x5F)
                     devInd = getSnsIndex(devN);
                     if (devInd<0){
@@ -1654,40 +1635,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 break;
 
             case CMD_SEND_COMMAND:
-//                lastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
-//                Log.i(TAG, " lastCommand = "+lastCommand );
                 break;
-
-            case CMD_MSG_ANALOG_DATA:
-                int devNum = buf[4]&0xFF;
-                int typ = buf[6]&0xFF;
-                int sInd = getSnsIndex(devNum);
-                if (sInd>=0){
-                    switch (typ){
-                        case SensorDevice.IS_TEMP:
-                            sensors.get(sInd).setTemp(((buf[7]&0xFF)<<8) | (buf[8]&0xFF));
-                            break;
-                        case SensorDevice.IS_HUM:
-                            sensors.get(sInd).setHum(((buf[7]&0xFF)<<8) | (buf[8]&0xFF));
-                            break;
-                        case SensorDevice.IS_PRESS:
-                            sensors.get(sInd).setPress(((buf[7]&0xFF)<<16) | ((buf[8]&0xFF)<<8) | (buf[9]&0xFF));
-                            break;
-                    }
-                }
-                break;
-            case CMD_MSG_STATISTIC:
-                devNum = buf[1]&0xFF;
-                typ = buf[6]&0xFF;
-                sInd = getSnsIndex(devNum);
-                if (sInd>=0){
-                    sensors.get(sInd).mStat.clear();
-                    for (int i = 2; i < buf.length; i++) {
-                        sensors.get(sInd).mStat.add(buf[i]);
-                    }
-                }
-                break;
-
 
         }
     }

@@ -110,4 +110,7 @@
     <string name="showLog">Show Log</string>
     <string name="ok">OK</string>
     <string name="count">Data count</string>
+    <string name="days">d</string>
+    <string name="hours">h</string>
+    <string name="secs">s</string>
 </resources>

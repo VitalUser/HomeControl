@@ -38,8 +38,6 @@ import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.widget.Toolbar;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -142,7 +140,6 @@ public class PageFragment extends Fragment {
 
     private final List<ControlElement> controls = new ArrayList<>();
 
-
     public static PageFragment newInstance(int page) {
         Bundle args = new Bundle();
         args.putInt(ARG_PAGE, page);
@@ -197,6 +194,7 @@ public class PageFragment extends Fragment {
 
         }
         Log.i(TAG, " onCreate, fragment " + mPage);
+
     }
 
 
@@ -388,7 +386,7 @@ public class PageFragment extends Fragment {
         int sensType = controls.get(cInd).getSensType();
         int sInd = act.getSnsIndex(nDev);
         if (sInd>=0){
-            sensValue.setText(act.sensors.get(sInd).getValue(sensType));
+            sensValue.setText(act.sensors.get(sInd).getTextValue(sensType));
         }else{
             sensValue.setText(getString(R.string.no_sns));
         }
@@ -963,7 +961,7 @@ public class PageFragment extends Fragment {
                 act.saveInt(SNS_TYPE+suff, IS_TEMP);
                 int sInd = act.getSnsIndex(controls.get(cInd).getNumDev());
                 if (sInd>=0){
-                    ((TextView)selectedView).setText(act.sensors.get(sInd).getValue(IS_TEMP));
+                    ((TextView)selectedView).setText(act.sensors.get(sInd).getTextValue(IS_TEMP));
                 }
                 return true;
 
@@ -980,7 +978,7 @@ public class PageFragment extends Fragment {
                 act.saveInt(SNS_TYPE+suff, IS_HUM);
                 sInd = act.getSnsIndex(controls.get(cInd).getNumDev());
                 if (sInd>=0){
-                    ((TextView)selectedView).setText(act.sensors.get(sInd).getValue(IS_HUM));
+                    ((TextView)selectedView).setText(act.sensors.get(sInd).getTextValue(IS_HUM));
                 }
                 return true;
 
@@ -997,7 +995,7 @@ public class PageFragment extends Fragment {
                 act.saveInt(SNS_TYPE+suff, IS_PRESS);
                 sInd = act.getSnsIndex(controls.get(cInd).getNumDev());
                 if (sInd>=0){
-                    ((TextView)selectedView).setText(act.sensors.get(sInd).getValue(IS_PRESS));
+                    ((TextView)selectedView).setText(act.sensors.get(sInd).getTextValue(IS_PRESS));
                 }
                 return true;
 
@@ -1019,13 +1017,13 @@ public class PageFragment extends Fragment {
                             String st = "";
                             switch (typ){
                                 case IS_TEMP:
-                                    st = act.sensors.get(stSensInd).getValue(IS_TEMP);
+                                    st = act.sensors.get(stSensInd).getTextValue(IS_TEMP);
                                     break;
                                 case IS_HUM:
-                                    st = act.sensors.get(stSensInd).getValue(IS_HUM);
+                                    st = act.sensors.get(stSensInd).getTextValue(IS_HUM);
                                     break;
                                 case IS_PRESS:
-                                    st = act.sensors.get(stSensInd).getValue(IS_PRESS);
+                                    st = act.sensors.get(stSensInd).getTextValue(IS_PRESS);
                                     break;
                             }
                             bundle.putString("CurData", st);
@@ -1095,87 +1093,73 @@ public class PageFragment extends Fragment {
             byte[] inBuf = intent.getByteArrayExtra("Buffer");
             assert inBuf != null;
             byte[] rbuff = Arrays.copyOfRange(inBuf, 7, inBuf.length);
-//            Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+act.byteArrayToHex(inBuf, inBuf.length));
-            parceFromHub(rbuff);
+
+            parceFragmFromHub(rbuff);
+            Log.i(TAG, " onUDPreceive in fragment "+mPage+": = "+ MainActivity.byteArrayToHex(inBuf, inBuf.length));
         }
 
     };
 
-    private void parceFromHub(byte[] buf){
+
+    private void parceFragmFromHub(byte[] buf){
         if (buf[0] == MSG_RE_SENT_W) {
             parceFromDevice(buf);
-        }
+         }
     }
 
     private void parceFromDevice(byte[] buf){
-//        int devN = buf[4]&0xFF;
-//        int outState = buf[5]&0xFF;
         int cmd = buf[3]&0xFF;
-//        int orientation = act.getResources().getConfiguration().orientation;
-//        boolean found;
-//        int ind;
         switch (cmd){
             case MSG_DEV_TYPE:
-                /*
-                Log.i(TAG, " PageFragment, get cmd_Msg_DevType for "+devN+",  = " + outState);
-                if (buf[6]>0){
-                    found = false;
-                    for (int i = 0; i <execDevs.size() ; i++) {
-                        if (execDevs.get(i).getDevNum()==(buf[1]&0xFF)){
-                            found = true;
-                        }
-                    }
-                    if (!found){
-                        execDevs.add(new ExecDevice(buf[1], (byte) 0));
-                    Log.i(TAG, " Fragment, add Device. execDevs.size() = "+execDevs.size());
-                    }
-                }
-                */
                 break;
             case CMD_SEND_COMMAND:
-//                alastCommand = (buf[4]&0xFF)*0x100 + buf[5]&0xFF;
                 break;
 
             case MSG_OUT_STATE:
-
             case MSG_STATE:
+                int devInd = act.getDevIndex(buf[4]&0xFF);
+                if (devInd>=0){
+                    act.execDevs.get(devInd).setOutState((byte) (buf[5]&0xFF));
+                }
+                Log.i(TAG, " PageFragment, get MSG_STATE for "+ (buf[4]&0xFF) +",  = " + (buf[5]&0xFF));
                 updateButtonsState();
                 break;
 
             case MSG_DEVICE_KIND:
-                /*
-                if (getSnsIndex(buf[1]&0xFF)<0) {
-                    sensors.add(new SensorDevice(buf[1] & 0xFF, buf[4] & 0xFF, 0, 0, 0));
-                }
-                */
-
                 break;
 
             case CMD_MSG_ANALOG_DATA:
+                int devNum = buf[4]&0xFF;
+                int typ = buf[6]&0xFF;
+                int sInd = act.getSnsIndex(devNum);
+                if (sInd>=0){
+                    switch (typ){
+                        case SensorDevice.IS_TEMP:
+                            act.sensors.get(sInd).setTemp(((buf[7]&0xFF)<<8) | (buf[8]&0xFF));
+                            break;
+                        case SensorDevice.IS_HUM:
+                            act.sensors.get(sInd).setHum(((buf[7]&0xFF)<<8) | (buf[8]&0xFF));
+                            break;
+                        case SensorDevice.IS_PRESS:
+                            act.sensors.get(sInd).setPress(((buf[7]&0xFF)<<16) | ((buf[8]&0xFF)<<8) | (buf[9]&0xFF));
+                            break;
+                    }
+                }
                 updateSensorState(buf[4]&0xFF);
+                Log.i(TAG, " PageFragment, get CMD_MSG_ANALOG_DATA for "+ (buf[4]&0xFF));
                 break;
 
             case MSG_SENSOR_STATE:
-                Log.i(TAG, "MSG_SENSOR_STATE in fragment");
+                int count = buf[2] - 3;
+                byte[] buff = Arrays.copyOfRange(buf, 5, count + 5);
+                sInd = act.getSnsIndex(buf[1]&0xFF);
+                act.sensors.get(sInd).setData(buff);
+                Log.i(TAG, " PageFragment, get MSG_SENSOR_STATE for "+ (buf[1]&0xFF));
                 updateSensorState(buf[1]&0xFF);
                 break;
 
         }
     }
-
-
-    /*
-    private String getTypeSensor(int typ){
-        switch (typ){
-            case IS_DS18B20 : return "DS18B20";
-            case IS_SHT21 : return "SHT21";
-            case IS_BMP180 : return "BMP180";
-            default: return "";
-        }
-    }
-
-     */
-
 
 
     private void updateButtonsState(){
@@ -1213,13 +1197,18 @@ public class PageFragment extends Fragment {
                         int cInd = getControlIndexByLocation(orientation, String.format(Locale.getDefault(), "%02d%02d", row+1, col+1));
                         if (cInd>=0){
                             if (controls.get(cInd).getNumDev()==numDev){
-                                snsValue.setText(act.sensors.get(sensInd).getValue(controls.get(cInd).getSensType()));
+                                snsValue.setText(act.sensors.get(sensInd).getTextValue(controls.get(cInd).getSensType()));
+                                snsValue.invalidate();
+                                Log.i(TAG, " PageFragment, set value for numDev "+ numDev);
                             }
+                        }else{
+                            Log.i(TAG, " PageFragment, not found sensor numDev "+ numDev + " at row " + (row+1) + ", col " + (col + 1));
                         }
                     }
                 }
             }
-
+        }else{
+            Log.i(TAG, "Sensor "+ numDev + " not exist");
         }
     }
 
@@ -1256,21 +1245,6 @@ public class PageFragment extends Fragment {
         }
     }
 
-    /*
-    private void setSensorData(TextView sns, int snsIndex, int sensType){
-        if (sns!=null){
-            sns.setText(act.sensors.get(snsIndex).getValue(sensType));
-        }
-    }
-
-    private View findViewAiLocation(int aRow, int aCol){
-        ViewGroup vcols = (ViewGroup) mTable.getChildAt(aRow-1);
-        return vcols.getChildAt(aCol-1);
-    }
-
-     */
-
-
 //-----------------------------------------------controls functions---------------------------------------------------------
 
     private int getControlIndexByNum(int num){
@@ -1290,32 +1264,9 @@ public class PageFragment extends Fragment {
     }
 
 
-    public Float getFloatSensorValue(int inData, int model, int sensType){
-        switch (sensType){
-            case IS_TEMP:
-                switch (model){
-                    case IS_DS18B20:
-                        return (float) (inData / 16);
-                    case IS_SHT21:
-                        return (float) (((inData&0xFFFC)*175.72)/0x10000 - 46.85);
-                    case IS_BMP180:
-                        return (float) (inData/10);
-                }
-            case IS_HUM:
-                if (model == IS_SHT21) {
-                    return (float) (((inData & 0xFFFC) * 125) / 0x10000 - 6);
-                }
-            case IS_PRESS:
-                if (model == IS_BMP180) {
-                    return (float) (inData / 100);
-                }
-        }
-        return (float) 0;
-    }
-
     private class CmdAdapter extends ArrayAdapter<String>{
 
-        private List<String> commands;
+        private final List<String> commands;
         private int selection;
 
         public CmdAdapter(@NonNull Context context, int resource, @NonNull List<String> objects) {

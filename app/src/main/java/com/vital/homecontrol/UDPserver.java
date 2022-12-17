@@ -361,16 +361,6 @@ class UDPserver {
 
     }
 
-    /*
-    public int getRcvIndex(int pID){
-        int pInd = this.rBuffer.size()-1;
-        while ((pInd>0)&&(this.rBuffer.get(pInd).index!=pID)){
-            pInd--;
-        }
-        return pInd;
-    }
-    */
-
     public int getWaitIndex(int hCmd, int dCmd){
         int pInd = waitBuf.size();
         boolean found = false;
@@ -390,27 +380,6 @@ class UDPserver {
         return pInd;
     }
 
-    /*
-    int getStunByte(int index){
-        if (index<this.stunBuff.length){
-            return this.stunBuff[index]&0xFF;
-        }else{
-            return 0;
-        }
-    }
-
-
-    byte[] getStunPart(int from, int to){
-        if (from<=to){
-            if (to<this.stunBuff.length){
-                return Arrays.copyOfRange(this.stunBuff, from, to);
-            }else{
-                return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
-            }
-        }
-        return Arrays.copyOfRange(this.stunBuff, 0, this.stunBuff.length);
-    }
-     */
 
     byte[] getMappetData(){
         if (stunBuff.length>32){
@@ -482,18 +451,6 @@ class UDPserver {
         }
         return strBuff.toString().toUpperCase();
     }
-
-    /*
-    public class ReceivedPacket{
-        public int index;
-        public byte[] packet;
-
-        public ReceivedPacket(int index, byte[] packet) {
-            this.index = index;
-            this.packet = packet;
-        }
-    }
-    */
 
     public static class WaitPacket{
         int hostCmd;

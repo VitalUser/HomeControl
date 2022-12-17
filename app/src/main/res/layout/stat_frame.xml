@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        >
+        tools:ignore="UselessParent">
 
         <TextView
             android:layout_width="match_parent"
@@ -24,57 +24,59 @@
             android:layout_height="match_parent"
             android:id="@+id/stat_graf"
             android:layout_weight="1"/>
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:id="@+id/stat_box"
-            android:layout_weight="2">
+            android:layout_weight="3">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/txt_period"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/txt_period"
-                    android:layout_gravity="center"
-                    android:layout_weight="6"
-                    android:text="@string/period"/>
+                android:layout_marginStart="5dp"
+                android:layout_alignParentTop="true"
+                android:text="@string/period" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/val_period"
-                    android:layout_weight="3"
-                    android:layout_gravity="center"
-                    />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/txt_count"
-                    android:layout_gravity="center"
-                    android:layout_weight="6"
-                    android:text="@string/count"/>
+                android:id="@+id/val_period"
+                android:layout_alignParentEnd="true"
+                android:layout_marginEnd="10dp"
+                android:layout_gravity="center"
+                tools:ignore="RelativeOverlap" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/txt_count"
+                android:layout_marginStart="5dp"
+                android:layout_below="@+id/txt_period"
+                android:layout_gravity="center"
+                android:text="@string/count"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:id="@+id/val_count"
-                    android:layout_weight="3"
-                    android:layout_gravity="center"
-                    />
-            </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/val_count"
+                android:layout_marginEnd="10dp"
+                android:layout_below="@+id/val_period"
+                android:layout_gravity="center"
+                android:layout_alignParentEnd="true"
+                />
+
+            <Button
+                android:id="@+id/stat_btn_exit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_centerInParent="true"
+                android:background="@android:color/transparent"
+                android:textColor="@android:color/holo_red_dark" />
 
 
-        </LinearLayout>
+        </RelativeLayout>
     </LinearLayout>
 
 
