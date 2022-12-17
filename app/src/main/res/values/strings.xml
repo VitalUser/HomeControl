@@ -113,4 +113,6 @@
     <string name="days">d</string>
     <string name="hours">h</string>
     <string name="secs">s</string>
+    <string name="cursor">Cursor</string>
+    <string name="scale">Scale</string>
 </resources>

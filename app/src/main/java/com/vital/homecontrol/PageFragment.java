@@ -1014,19 +1014,6 @@ public class PageFragment extends Fragment {
                         if (wInd>=0){
                             stat = Arrays.copyOfRange(act.sUDP.waitBuf.get(wInd).packet, 7, act.sUDP.waitBuf.get(wInd).packet.length) ;
                             Bundle bundle = new Bundle();
-                            String st = "";
-                            switch (typ){
-                                case IS_TEMP:
-                                    st = act.sensors.get(stSensInd).getTextValue(IS_TEMP);
-                                    break;
-                                case IS_HUM:
-                                    st = act.sensors.get(stSensInd).getTextValue(IS_HUM);
-                                    break;
-                                case IS_PRESS:
-                                    st = act.sensors.get(stSensInd).getTextValue(IS_PRESS);
-                                    break;
-                            }
-                            bundle.putString("CurData", st);
                             bundle.putByteArray("Data", stat);
                             bundle.putInt("Model", model);
                             StatFragment statFr = new StatFragment();
@@ -1078,13 +1065,6 @@ public class PageFragment extends Fragment {
                 return super.onContextItemSelected(item);
         }
     }
-
-    /*
-    @Override
-    public void onRxUDP(byte[] inBuf, int pIndex) {
-        parceFromHub(Arrays.copyOfRange(inBuf, 7, inBuf.length));
-    }
-    */
 
     BroadcastReceiver udpReciever = new BroadcastReceiver() {
 

@@ -113,4 +113,6 @@
     <string name="days">д</string>
     <string name="hours">ч</string>
     <string name="secs">с</string>
+    <string name="cursor">Курсор</string>
+    <string name="scale">Масштаб</string>
 </resources>

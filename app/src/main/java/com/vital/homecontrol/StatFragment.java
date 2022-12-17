@@ -55,12 +55,13 @@ public class StatFragment extends AppCompatDialogFragment {
     TextView curTemp;
     TextView valPeriod;
     TextView valCount;
+    int numDev;
     MainActivity act;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        act = (MainActivity) getActivity();
+        act = (MainActivity) getActivity();
 
     }
 
@@ -77,13 +78,11 @@ public class StatFragment extends AppCompatDialogFragment {
         ArrayList<Float> data = new ArrayList<>();
 
 
-        String st = "";
         byte[] stat = {};
         int typ = 0;
         int model = 0;
         double period = 0;
         if (getArguments() != null) {
-            st = getArguments().getString("CurData", "");
             stat = getArguments().getByteArray("Data");
             model = getArguments().getInt("Model", 0);
         }
@@ -91,6 +90,7 @@ public class StatFragment extends AppCompatDialogFragment {
             int count = stat[7]&0xFF;
             period = ((stat[5]&0xFF)<<8 | (stat[6]&0xFF)) * K_STAT;
             typ = stat[4]&0xFF;
+            numDev = stat[1]&0xFF;
             for (int i = count-1; i >=0 ; i--) {
                 int val;
                 if (stat[4] == IS_PRESS) {
@@ -126,10 +126,10 @@ public class StatFragment extends AppCompatDialogFragment {
         }
         LineGraphSeries<DataPoint> series = new LineGraphSeries<>(dp);
         graph.addSeries(series);
-        graph.setCursorMode(true);
 
-        graph.getViewport().setYAxisBoundsManual(true);
-        graph.getViewport().setScalableY(true);
+//        graph.getViewport().setYAxisBoundsManual(true);
+//        graph.getViewport().setScalableY(true);
+        graph.getViewport().setScalable(true);
         graph.getViewport().setMinY(minData(data)-10);
         graph.getViewport().setMaxY(maxData(data)+10);
 
@@ -156,7 +156,27 @@ public class StatFragment extends AppCompatDialogFragment {
 //        Log.i(TAG, String.valueOf(s));
 
         curTemp = view.findViewById(R.id.id_curtemp);
-        curTemp.setText(st);
+        int sensInd = act.getSnsIndex(numDev);
+        if (sensInd>=0){
+            curTemp.setText(act.sensors.get(sensInd).getTextValue(typ));
+        }
+
+        graph.setCursorMode(false);
+        Button cursorButton = view.findViewById(R.id.stat_cursor_btn);
+        graph.setCursorMode(false);
+        cursorButton.setText(getString(R.string.cursor));
+        cursorButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (graph.isCursorMode()){
+                    cursorButton.setText(getString(R.string.cursor));
+                    graph.setCursorMode(false);
+                }else {
+                    cursorButton.setText(getString(R.string.scale));
+                    graph.setCursorMode(true);
+                }
+            }
+        });
 
         Button exitBtn = view.findViewById(R.id.stat_btn_exit);
         exitBtn.setText(getString(R.string.ok));
@@ -177,7 +197,7 @@ public class StatFragment extends AppCompatDialogFragment {
         int sec = minsout % 60;
 
 
-        st = "";
+        String st = "";
         if (days>0)
             st = st + days + getString(R.string.days)+ " ";
         if (hours>0)
