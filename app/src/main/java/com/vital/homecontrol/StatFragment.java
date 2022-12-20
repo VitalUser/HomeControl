@@ -18,7 +18,10 @@ import android.widget.TextView;
 import com.jjoe64.graphview.DefaultLabelFormatter;
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.DataPointInterface;
 import com.jjoe64.graphview.series.LineGraphSeries;
+import com.jjoe64.graphview.series.OnDataPointTapListener;
+import com.jjoe64.graphview.series.Series;
 
 import java.sql.Time;
 import java.text.DateFormat;
@@ -53,6 +56,7 @@ public class StatFragment extends AppCompatDialogFragment {
 
     GraphView graph;
     TextView curTemp;
+    TextView dataTemp;
     TextView valPeriod;
     TextView valCount;
     int numDev;
@@ -118,7 +122,6 @@ public class StatFragment extends AppCompatDialogFragment {
         }
 
         @SuppressLint("SimpleDateFormat") SimpleDateFormat df = new SimpleDateFormat("E HH:mm", Locale.getDefault());
-        @SuppressLint("SimpleDateFormat") SimpleDateFormat dfp = new SimpleDateFormat("dd hh:mm");
 
         DataPoint[] dp = new DataPoint[data.size()];
         for (int i = 0; i <data.size() ; i++) {
@@ -127,24 +130,28 @@ public class StatFragment extends AppCompatDialogFragment {
         LineGraphSeries<DataPoint> series = new LineGraphSeries<>(dp);
         graph.addSeries(series);
 
-//        graph.getViewport().setYAxisBoundsManual(true);
+        graph.getViewport().setYAxisBoundsManual(true);
 //        graph.getViewport().setScalableY(true);
         graph.getViewport().setScalable(true);
         graph.getViewport().setMinY(minData(data)-10);
         graph.getViewport().setMaxY(maxData(data)+10);
 
-        graph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
-
         Date curDate = Calendar.getInstance().getTime();
 
+        curTemp = view.findViewById(R.id.id_curtemp);
+        int sensInd = act.getSnsIndex(numDev);
+        if (sensInd>=0){
+            String sst = df.format(curDate) + " : " + act.sensors.get(sensInd).getTextValue(typ);
+            curTemp.setText(sst);
+        }
+
         double finalPeriod = period;
-        double maxX = graph.getViewport().getMaxY(true);
         graph.getGridLabelRenderer().setLabelFormatter(new DefaultLabelFormatter(){
             @Override
             public String formatLabel(double value, boolean isValueX){
                 if (isValueX){
                     Date dt = new Date();
-                    dt.setTime((long) (curDate.getTime() - (maxX - value) * finalPeriod *1000));
+                    dt.setTime((long) (curDate.getTime() - (dp.length - value) * finalPeriod *1000));
                     return df.format(dt);
                 }else{
                     return super.formatLabel(value, isValueX);
@@ -153,18 +160,27 @@ public class StatFragment extends AppCompatDialogFragment {
         });
 
 
-//        Log.i(TAG, String.valueOf(s));
+        dataTemp = view.findViewById(R.id.id_data);
 
-        curTemp = view.findViewById(R.id.id_curtemp);
-        int sensInd = act.getSnsIndex(numDev);
-        if (sensInd>=0){
-            curTemp.setText(act.sensors.get(sensInd).getTextValue(typ));
-        }
+        /*
+        double finalPeriod = period;
+        double maxX = graph.getViewport().getMaxX(true);
 
-        graph.setCursorMode(false);
+        series.setOnDataPointTapListener(new OnDataPointTapListener() {
+            @Override
+            public void onTap(Series series, DataPointInterface dataPoint) {
+                Date dt = new Date();
+                dt.setTime((long) (curDate.getTime() - (dp.length - dataPoint.getX()) * finalPeriod *1000));
+                String st = df.format(dt) + " : " + String.format(Locale.getDefault(), "%2.2f%s",  dataPoint.getY(), "\u00B0C");
+                dataTemp.setText(st);
+
+            }
+        });
+        */
+
+        graph.setCursorMode(true);
         Button cursorButton = view.findViewById(R.id.stat_cursor_btn);
-        graph.setCursorMode(false);
-        cursorButton.setText(getString(R.string.cursor));
+        cursorButton.setText(getString(R.string.scale));
         cursorButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
