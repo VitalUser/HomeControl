@@ -239,19 +239,19 @@ public class StatFragment extends AppCompatDialogFragment {
             case IS_TEMP:
                 switch (model){
                     case IS_DS18B20:
-                        return (float) (inData / 16);
+                        return  (float)inData / 16;
                     case IS_SHT21:
-                        return (float) (((inData&0xFFFC)*175.72)/0x10000 - 46.85);
+                        return (float) (((float)(inData&0xFFFC)*175.72)/0x10000 - 46.85);
                     case IS_BMP180:
-                        return (float) (inData/10);
+                        return  (float)inData/10;
                 }
             case IS_HUM:
                 if (model == IS_SHT21) {
-                    return (float) (((inData & 0xFFFC) * 125) / 0x10000 - 6);
+                    return (float) (((float)(inData & 0xFFFC) * 125) / 0x10000 - 6);
                 }
             case IS_PRESS:
                 if (model == IS_BMP180) {
-                    return (float) (inData / 100);
+                    return  (float)inData / 100;
                 }
         }
         return (float) 0;
