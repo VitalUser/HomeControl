@@ -5,8 +5,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.preference.EditTextPreference;
 import android.preference.ListPreference;
+import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
+import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 import android.util.Log;
 
@@ -17,6 +19,8 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
 
     private static final String TAG = "MyclassSettingsFragment";
 
+    boolean passEn;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -24,8 +28,21 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         // Load the preferences from an XML resource
         addPreferencesFromResource(R.xml.preferences);
 
+        PreferenceCategory network = (PreferenceCategory) findPreference("id_cat_network");
+        SwitchPreference noPass = (SwitchPreference) findPreference("id_cb_NoPass");
+        boolean isDev = false;
+        passEn = !noPass.isChecked();
+        if (getArguments() != null){
+            isDev = getArguments().getBoolean("IsDev", false);
+        }
+        if (!isDev){
+            network.removePreference(noPass);
+            passEn = true;
+        }
+
         EditTextPreference pass = (EditTextPreference) findPreference("key_udppass");
         pass.setSummary(pass.getText() + " (" + Integer.toHexString(Integer.parseInt(pass.getText())).toUpperCase() + ")");
+        pass.setEnabled(passEn);
 
         IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
         iPpicker.setSummary(iPpicker.getIp());
@@ -100,14 +117,17 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         Log.i(TAG, " onSharedPreferenceChanged (fragment): s = " + s);
+        SwitchPreference noPass = (SwitchPreference) findPreference("id_cb_NoPass");
+        EditTextPreference pass = (EditTextPreference) findPreference("key_udppass");
         EditTextPreference editText;
         EditTextPreference remport = (EditTextPreference) findPreference("key_port");
         IPpickerPreference iPpicker = (IPpickerPreference) findPreference("key_remIP");
         IPpickerPreference signaliPpicker = (IPpickerPreference) findPreference("key_signalIP");
         SerialDialog serial = (SerialDialog) findPreference("key_set_serial");
         switch (s){
+            case "id_cb_NoPass":
+                pass.setEnabled(!noPass.isChecked());
             case "key_udppass":
-                EditTextPreference pass = (EditTextPreference) findPreference(s);
                 pass.setSummary(pass.getText() + " (" + Integer.toHexString(Integer.parseInt(pass.getText())).toUpperCase() + ")");
                 break;
             case "key_remIP":

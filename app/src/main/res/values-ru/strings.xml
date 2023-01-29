@@ -115,4 +115,11 @@
     <string name="secs">с</string>
     <string name="cursor">Курсор</string>
     <string name="scale">Масштаб</string>
+    <string name="setNewPass">Установить пароль</string>
+    <string name="setNewSerial">Установить Серийный №</string>
+    <string name="noPassEnt">Беспарольный вход</string>
+    <string name="titleNewPass">Новый пароль (макс. 6 цифр)</string>
+    <string name="changed_group">Changed Group</string>
+    <string name="set_name">Укажите название</string>
+    <string name="get_room">Выберите комнату</string>
 </resources>

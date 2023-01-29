@@ -34,17 +34,19 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import com.google.android.material.tabs.TabLayout;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,21 +60,16 @@ import java.io.OutputStream;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
@@ -87,11 +84,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private static final String TAG = "MyclassMain";
     
     private Config config;
-    private Properties namesFile;
+
+    private IniFile outNames;
+//    private Properties namesFile;
     private String cardStorageDir;
 //    public String namesFileName;
     SharedPreferences prefs;
 
+    private static final int DEF_PASS        =  0xA8A929;
     private static final String UDP_RCV = "UDP_received";
     static final String ROOM_NAME_KEY = "RoomName";
     static final int RK_SETTING = 1001;
@@ -112,7 +112,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final byte DATA_NOT_LOAD = 0x42;
 //    static final byte DATA_SUCSESS = 0x43;
     static final byte LICON_NAMES = 0x45;
-//    static final byte CMD_DATA = 0x46;
+
+    static final byte IS_HOST = 0x5A;
 
     static final int ASK_IP                     =  0x01;
     static final int BREAK_LINK                 =  0x02;
@@ -141,10 +142,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_W_ERROR                =  0x1F;
     static final int CMD_SET_TIME               =  0x31;
     static final int ASK_SERIAL                 =  0x32;
+    static final int SET_SERIAL                 =  0x33;
 
 
     static final int MSG_SERIAL                 =  0x4E;
-    static final int Msg_LiconIP 	    	    =  0x55;
+//    static final int Msg_LiconIP 	    	    =  0x55;
 
 
     static final int MSG_RCV_OK                 =  0xA5;
@@ -186,8 +188,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_NO_HOST                =  0x05;
     static final int MSG_NO_STUN_ANSWER         =  0x06;
     static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
-    static final int MSG_END_GET_COMMAND        =  0x08;
+//    static final int MSG_END_GET_COMMAND        =  0x08;
     static final int MSG_NEED_CHECK_SETTINGS    =  0x10;
+    static final int MSG_END_READMEM            =  0x09;
 
 
     ViewPager viewPager;
@@ -202,12 +205,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     TextView sensCountText;
     TextView linkTText;
     UDPserver sUDP;
+    ChangeAdapter chAdapter;
 
 
     Timer timer;
     TimerTask task;
-//    Timer startTimer;
-//    TimerTask startTask;
+
+    Timer lntimer;
+    TimerTask lnTask;
 
 
 
@@ -226,22 +231,27 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private int peerPort = 0;
     public int defaultPort = 55555;
     public String devLocalIP;
-    private String liconIP = "";
+//    private String liconIP = "";
     public boolean connected;
     private int pass;
     private int serial = 0;
     private int curserial;
     public List<ExecDevice> execDevs = new ArrayList<>();
     public List<SensorDevice> sensors = new ArrayList<>();
-//    public int lastCommand = 0;
-//    public int changedState = 0;
     private String theme;
     private int timeout;
-    private boolean sucsessReadMem;
-    private String liconName = "";
     private boolean cardEnable;
     private boolean extDenied = false;
 
+    private boolean isDev = false;
+    private boolean noPass = false;
+
+    public List<ChangedGroup> chGroups;
+
+    private boolean canClearChGroup = false;
+
+    public ArrayList<String> commandList;
+    private boolean readMemOk = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -296,14 +306,25 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             config = new Config(this.getFilesDir().toString());
         }
 
+        if (outNames==null){
+            outNames = new IniFile(this.getFilesDir().toString() + "/OutNames");
+        }
+
+        cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+        File dev = new File(cardStorageDir + "/dev.txt");
+        isDev = dev.exists();
+
         readSetting();
         initiateStorage();
-        namesFile = new Properties();
+
+        commandList = new ArrayList<>();
+        chGroups = new ArrayList<>();
 
         viewPager = findViewById(R.id.viewPager);
         roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
         viewPager.setAdapter(roomAdapter);
 
+        chAdapter = new ChangeAdapter(this, R.layout.change_list_item, chGroups);
 
 
         tabLayout = findViewById(R.id.tabs);
@@ -312,7 +333,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         wifiMgr = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
         sUDP = (UDPserver)getLastCustomNonConfigurationInstance();
-
         if (sUDP==null){
             sUDP = new UDPserver(getApplicationContext(), pass, this);
             sUDP.setSignalIP(signalIP);
@@ -320,7 +340,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             Log.i(TAG, "new sUDP: "+sUDP.toString() );
         }
         Log.i(TAG, "OnCreate" );
-
 
     }
 
@@ -331,10 +350,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         staticIP = prefs.getBoolean("id_cb_StaticIP", false);
         remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
         serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_set_serial", "0")));
-        pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
         workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
         timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
         extDenied = prefs.getBoolean("key_ExtMemDenied", false);
+        noPass = prefs.getBoolean("id_cb_NoPass", false);
+        if (isDev && noPass){
+            pass = DEF_PASS;
+        }else{
+            pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
+        }
 
 
     }
@@ -511,7 +535,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         outState.putParcelableArrayList(STATE_SENSORS, (ArrayList<? extends Parcelable>) sensors);
 //        outState.putInt(STATE_LASTSMD, lastCommand);
 //        outState.putInt(STATE_LASTCHNG, changedState);
-        outState.putString(STATE_LICONIP, liconIP);
+//        outState.putString(STATE_LICONIP, liconIP);
         super.onSaveInstanceState(outState);
     }
 
@@ -526,7 +550,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         sensors = savedInstanceState.getParcelableArrayList(STATE_SENSORS);
 //        lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
 //        changedState = savedInstanceState.getInt(STATE_LASTCHNG);
-        liconIP = savedInstanceState.getString(STATE_LICONIP);
+//        liconIP = savedInstanceState.getString(STATE_LICONIP);
     }
 
     @Override
@@ -536,6 +560,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             timer.cancel();
         }
         timer = null;
+        if (lntimer!=null){
+            lntimer.cancel();
+        }
+        lntimer = null;
         Log.i(TAG, " onPause in MainActivity " );
         if (sUDP!=null){
             byte[] outBuf = {BREAK_LINK, 0};
@@ -560,8 +588,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     if (connected){
                         sUDP.incCurrentID();
                         byte[] buf = {(byte) CMD_KEEP_LINK};
-//                        if (prefs.getBoolean("key_showKeep", false))
-//                           logList.add("S: " + byteArrayToHex(buf, buf.length));
                         sUDP.send(buf, (byte) NO_CONFIRM, 0, 0);
                         Log.i(TAG, "TimerTask" );
                     }
@@ -571,7 +597,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             }
         };
         timer = new Timer();
-        timer.schedule(task, 12000, 12000);
+        timer.schedule(task, 20000, 20000);
     }
 
     @Override
@@ -607,10 +633,35 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
+    public boolean onCreateOptionsMenu(@NonNull Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
         return super.onCreateOptionsMenu(menu);
 // https://habr.com/post/222295/ - Menu
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(@NonNull Menu menu) {
+//        MenuItem item;
+        if (roomAdapter.getCount()==0){
+            menu.findItem(R.id.action_ren_room).setVisible(false);
+            menu.findItem(R.id.action_del_room).setVisible(false);
+        }else{
+            menu.findItem(R.id.action_ren_room).setVisible(true);
+            menu.findItem(R.id.action_del_room).setVisible(true);
+        }
+
+        menu.findItem(R.id.action_update).setVisible(netInfo != null);
+
+        if (isDev){
+            menu.findItem(R.id.action_SetPass).setVisible(true);
+            menu.findItem(R.id.action_SetSerial).setVisible(true);
+        }else{
+            menu.findItem(R.id.action_SetPass).setVisible(false);
+            menu.findItem(R.id.action_SetSerial).setVisible(false);
+        }
+
+
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -647,22 +698,179 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             case R.id.action_settings:
                 Intent intent = new Intent();
                 intent.setClass(this, SettingActivity.class);
+                intent.putExtra("IsDev", isDev);
                 startActivityForResult(intent, RK_SETTING);
                 return true;
 
-            case R.id.action_GetNames:
-                askLiConData();
-                return true;
-
-            case R.id.action_GetCommands:
-                getModulesCommands();
+            case R.id.action_Learning:
+                getLearning();
                 return true;
             case R.id.action_ShowLog:
                 showLog();
                 return true;
+            case R.id.action_SetPass:
+                setNewPass();
+                return true;
+            case R.id.action_SetSerial:
+                setSerial();
+                return true;
+
 
         }
         return super.onOptionsItemSelected(item);
+    }
+
+
+    private void setSerial() {
+        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+        EditText et = new EditText(this);
+        et.setInputType(InputType.TYPE_CLASS_NUMBER);
+        et.setSelectAllOnFocus(true);
+        et.setText(String.valueOf(curserial));
+        dlg.setTitle(getString(R.string.setNewSerial));
+        dlg.setView(et);
+        dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                curserial = Integer.parseInt(et.getText().toString());
+                byte p0 = (byte) (curserial & 0xFF);
+                byte p1 = (byte) ((curserial >> 8) & 0xFF);
+                byte p2 = (byte) ((curserial >> 16) & 0xFF);
+                byte p3 = (byte) ((curserial >> 24) & 0xFF);
+                byte[] np = {SET_SERIAL, p3, p2, p1, p0};
+                if (askUDP(np, MSG_SERIAL, 0)){
+                    String s = "Serial " + curserial + " set Ok";
+                    Toast.makeText(getApplicationContext(), s, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        dlg.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+        dlg.show();
+    }
+
+    private void setNewPass() {
+        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+        EditText et = new EditText(this);
+        byte[] outBuf = {READ_ALT_PREFIX, IS_HOST};
+        if (askUDP(outBuf, MSG_PREFIX, 0)) {
+            int wInd = sUDP.getWaitIndex(MSG_PREFIX, 0);
+            if (wInd>=0){
+                int oldPass = 0;
+                oldPass += (sUDP.waitBuf.get(wInd).packet[8]&0x7F) << 16;
+                oldPass += (sUDP.waitBuf.get(wInd).packet[9]&0xFF) << 8;
+                oldPass += (sUDP.waitBuf.get(wInd).packet[10]&0xFF);
+                et.setText(String.valueOf(oldPass));
+            }
+        }
+        et.setInputType(InputType.TYPE_CLASS_NUMBER);
+        et.setSelectAllOnFocus(true);
+        dlg.setTitle(getString(R.string.titleNewPass));
+        dlg.setView(et);
+        dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                int newPass = Integer.parseInt(et.getText().toString()) & 0x7FFFFF;
+                byte p0 = (byte) (newPass & 0xFF);
+                byte p1 = (byte) ((newPass >> 8) & 0xFF);
+                byte p2 = (byte) ((newPass >> 16) & 0xFF);
+                byte[] np = {SET_ALT_PREFIX, p2, p1, p0};
+                if (askUDP(np, MSG_RCV_OK, 0)){
+                    String s = "Pass " + newPass + " set Ok";
+                    Toast.makeText(getApplicationContext(), s, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        dlg.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+        dlg.show();
+    }
+
+
+    private void getLearning() {
+        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+
+        View view = getLayoutInflater().inflate(R.layout.learning_dialog, null, false);
+        ListView lv = view.findViewById(R.id.learn_lv);
+//        ListView lv = new ListView(this);
+        lv.setAdapter(chAdapter);
+
+        dlg.setView(view);
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                setOutName(i);
+
+            }
+        });
+
+        dlg.setNegativeButton("Close", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+        dlg.show();
+    }
+
+    private void setOutName(int position) {
+        AlertDialog.Builder dlg = new AlertDialog.Builder(this);
+        View view = getLayoutInflater().inflate(R.layout.set_outname_dlg, null, false);
+        int nOut = chGroups.get(position).getnOut();
+        int nDev = chGroups.get(position).getNDev();
+        int dInd = getDevIndex(nDev);
+        String name = "";
+        String room = "";
+        if (dInd>=0){
+            room = execDevs.get(dInd).getRoomText(nOut);
+            name = execDevs.get(dInd).getLampText(nOut);
+        }
+        Spinner sp = view.findViewById(R.id.room_spinner);
+        String[] rooms = new String[roomAdapter.getCount()];
+        for (int i = 0; i < roomAdapter.getCount(); i++) {
+            rooms[i]= Objects.requireNonNull(roomAdapter.getPageTitle(i)).toString();
+        }
+        final ArrayAdapter<String> spadapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, rooms);
+        spadapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        sp.setAdapter(spadapter);
+        sp.setSelection(roomAdapter.getRoomPosition(room));
+
+        EditText et = view.findViewById(R.id.out_name_text);
+        et.setText(name);
+
+        dlg.setView(view);
+
+        dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                if (dInd>=0){
+                    String dkey = String.format(Locale.getDefault(), "D%03d%02d", nDev, nOut);
+                    execDevs.get(dInd).setRoomText(nOut, sp.getSelectedItem().toString());
+                    execDevs.get(dInd).setLampText(nOut, et.getText().toString());
+                    outNames.setStr(dkey+"R", sp.getSelectedItem().toString());
+                    outNames.setStr(dkey+"N", et.getText().toString());
+                    chAdapter.groups.get(position).setRoom(sp.getSelectedItem().toString());
+                    chAdapter.groups.get(position).setName(et.getText().toString());
+                    chAdapter.notifyDataSetChanged();
+
+                }
+            }
+        });
+        dlg.setNegativeButton("Close", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+        dlg.show();
     }
 
     private void showLog() {
@@ -704,8 +912,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             if (sUDP!=null){
                 sUDP.setPass(pass);
                 sUDP.setSignalIP(signalIP);
-//                sUDP.setDestPort(remPort);
-//                sUDP.setDestIP(remoteIP);
             }
             if (!theme.equals(prefs.getString("key_theme", ""))){
                 recreate();
@@ -742,59 +948,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
-    @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem item;
-        if (roomAdapter.getCount()==0){
-            item = menu.findItem(R.id.action_ren_room);
-            item.setVisible(false);
-            item = menu.findItem(R.id.action_del_room);
-            item.setVisible(false);
-        }else{
-            item = menu.findItem(R.id.action_ren_room);
-            item.setVisible(true);
-            item = menu.findItem(R.id.action_del_room);
-            item.setVisible(true);
-        }
-        if (netInfo==null){
-            item = menu.findItem(R.id.action_update);
-            item.setVisible(false);
-        }else{
-            item = menu.findItem(R.id.action_update);
-            item.setVisible(true);
-        }
-        if (liconIP.equals("")){
-            menu.findItem(R.id.action_GetNames).setVisible(false);
-
-        }else{
-            item = menu.findItem(R.id.action_GetNames);
-            item.setVisible(true);
-            String titl;
-            if (liconName.equals("")){
-                titl = getText(R.string.getnames)+" "+liconIP;
-            }else{
-                titl = getText(R.string.getnames)+" "+liconName;
-            }
-            item.setTitle(titl);
-        }
-        if (execDevs.size()>0){
-            item =menu.findItem(R.id.action_GetCommands);
-            item.setVisible(true);
-        }else{
-            item =menu.findItem(R.id.action_GetCommands);
-            item.setVisible(false);
-        }
-
-
-        return super.onPrepareOptionsMenu(menu);
-    }
-
     public void addRoom (String name){
         int ind = 1;
-
-
-
-
         while (!config.getStr(ROOM_NAME_KEY + String.format(Locale.getDefault(), "%02d", ind)).equals("")){
             ind++;
         }
@@ -972,41 +1127,19 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         return "";
     }
 
-    /*  Variant with AsyncTask
-    public class ConnectTask extends AsyncTask<String, Integer, Boolean> {
-
-
-        @Override
-        protected Boolean doInBackground(String... strings) {
-            return null;
-        }
-    }
-    */
-
     private boolean askIP(){
         devLocalIP="";
-        /*
-        return waitCondition(new Callable<Boolean>() {
-            @Override
-            public Boolean call() {
-                return !devLocalIP.equals("");
-            }
-        }, new byte[]{ASK_IP});
-        */
-        byte[] outBuf = {ASK_IP};
-        return  askUDP(outBuf, MSG_ANSW_IP, 0);
+        if (noPass){
+            byte[] outBuf = {ASK_IP, IS_HOST};
+            return  askUDP(outBuf, MSG_ANSW_IP, 0);
+        }else{
+            byte[] outBuf = {ASK_IP};
+            return  askUDP(outBuf, MSG_ANSW_IP, 0);
+        }
     }
 
     private boolean isIpFound(){
         connected = askIP();
-//        if (connected){
-//            devLocalIP = String.format(Locale.getDefault(),"%d.%d.%d.%d", sUDP.getWBbyte(1),sUDP.getWBbyte(2),sUDP.getWBbyte(3),sUDP.getWBbyte(4)); // & 0xFF need for unsigned
-//            Log.i(TAG, " got answer IP: "+devLocalIP );
-
-//            if (!remote){
-//                sUDP.setDestIP(devLocalIP);
-//            }
-//        }
         return connected;
     }
 
@@ -1015,9 +1148,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         if (sUDP.getPass()==0x800000){
             statusText.setText(R.string.no_pass_set);
         }else{
-//            statusText.setText(getString(R.string.connecting));
             connected = false;
-//            isP2P = false;
 
             pBar.setVisibility(View.VISIBLE);
 
@@ -1149,6 +1280,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
 //                   statusText.setText(R.string.connected);
                    progressLinkDevs.setProgress(0);
+                   taskReadMemory();
                    break;
                case MSG_GOT_MAP_ADDR:
                    st = mappedIP +" : " + mappedPort;
@@ -1189,19 +1321,17 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                        Toast.makeText(getApplicationContext(), getText(R.string.no_stun), Toast.LENGTH_LONG).show();
                    }
                    break;
-               case MSG_END_GET_COMMAND:
-                   pBar.setVisibility(View.INVISIBLE);
-                   if (sucsessReadMem){
-                       saveCommandsFile();
-                       Toast.makeText(getApplicationContext(), getText(R.string.Success), Toast.LENGTH_LONG).show();
-                   }else{
-                       Toast.makeText(getApplicationContext(), getText(R.string.error), Toast.LENGTH_LONG).show();
-                   }
-                   break;
                case MSG_NEED_CHECK_SETTINGS:
                    int needCheckSetting = readInt("key_needCheckSetting");
                    if (needCheckSetting==0)
                        checkForSavedSettings();
+                   break;
+               case MSG_END_READMEM:
+                   if (readMemOk){
+                       devCountText.setText(String.format(Locale.getDefault(),"%d:", execDevs.size()));
+                   }else{
+                       devCountText.setText(String.format(Locale.getDefault(),"%d.", execDevs.size()));
+                   }
                    break;
            }
         }
@@ -1311,6 +1441,53 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
+    private void readDevMem(int nDev){
+        int dInd = getDevIndex(nDev);
+        if (dInd>=0){
+            execDevs.get(dInd).clearMem();
+            execDevs.get(dInd).setReadMem(false);
+            byte[] askBuf = {SET_W_COMMAND, (byte) nDev, 0x05, (byte) CMD_ASK_MEM, 1, 0, (byte) 0xB0};
+            if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
+                int wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
+                if (wInd>=0){
+                    int count = sUDP.waitBuf.get(wInd).packet[14]&0xFF;
+                    if (count == 0xFF) count = 0;
+                    execDevs.get(dInd).writeMem((byte) count, 0xB0);
+                    int memToRead = count*5;
+                    if (memToRead+0xB1 > execDevs.get(dInd).getMemSize()){
+                        memToRead = execDevs.get(dInd).getMemSize()-0xB1;
+                    }
+                    int memBlock = execDevs.get(dInd).getMemblock();
+                    int current = 0xB1;
+                    int blocksToRead = memToRead / memBlock;
+                    if (blocksToRead * memBlock < memToRead){
+                        blocksToRead++;
+                    }
+                    while (blocksToRead>0){
+                        int bytesToRead = Math.min(memBlock, memToRead);
+                        byte[] rdMem = {SET_W_COMMAND, (byte) nDev, 0x05, (byte) CMD_ASK_MEM, (byte) bytesToRead, (byte) ((current>>8)&0xFF), (byte) (current&0xFF)};
+                        if (askUDP(rdMem, MSG_RE_SENT_W, MSG_EEP_DATA)){
+                            wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
+                            if (wInd>=0){
+                                int gotCnt = sUDP.waitBuf.get(wInd).packet[11]&0xFF;
+                                int addr = (sUDP.waitBuf.get(wInd).packet[12]&0xFF)*0x100 + sUDP.waitBuf.get(wInd).packet[13]&0xFF;
+                                byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(wInd).packet, 14, gotCnt+14);
+                                execDevs.get(dInd).addMem(buf, addr, gotCnt);
+                            }
+                        }
+                        current +=bytesToRead;
+                        memToRead -=bytesToRead;
+                        blocksToRead--;
+                    }
+                }
+            }else {
+                readMemOk = false;
+            }
+        }
+    }
+
+    /*
+
     private void getModulesCommands(){
         pBar.setVisibility(View.VISIBLE);
         new Thread(new Runnable() {
@@ -1334,7 +1511,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                         if (count == 0xFF) count = 0;
                         if (count > 67) count = 67;     // max command count;
                         if (count>0){
-                            execDevs.get(di).addMem(new byte[]{(byte) count});
+//                            execDevs.get(di).addMem(new byte[]{(byte) count});
                             int bytesToRead = count*5;
                             int offs = 0xB0+1;
                             while ((bytesToRead>0)&&(sucsessReadMem)){
@@ -1351,7 +1528,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                     wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
                                     if (wInd>=0){
                                         byte[] eep = Arrays.copyOfRange(sUDP.waitBuf.get(wInd).packet, 14, 14+countRead);
-                                        execDevs.get(di).addMem(eep);
+//                                        execDevs.get(di).addMem(eep);
                                     }
 //                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 7+countRead);
                                 }else{
@@ -1376,32 +1553,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     }
 
     private void saveCommandsFile(){
-        ArrayList<Integer> cmdAr = new ArrayList<>();
-        for (int di = 0; di < execDevs.size(); di++) {
-            if (!execDevs.get(di).memEmpty()){
-                int count = execDevs.get(di).getCmdCount();
-                for (int i = 0; i < count; i++) {
-                    int cmd = execDevs.get(di).getNumCmd(i);
-                    if (!cmdAr.contains(cmd)){
-                        cmdAr.add(cmdAr.size(), cmd);
-                    }
-                }
-            }
-        }
-        Collections.sort(cmdAr);
-        ArrayList<String> list = new ArrayList<>();
-        for (int ci = 0; ci < cmdAr.size(); ci++) {
-            StringBuilder stCmd = new StringBuilder(String.format(Locale.getDefault(), "%05d=", cmdAr.get(ci)));
-            for (int di = 0; di < execDevs.size(); di++) {
-                String numD = String.format(Locale.getDefault(), "%02x", execDevs.get(di).getDevNum());
-                for (int i = 0; i < execDevs.get(di).getCmdCount(); i++) {
-                    if (execDevs.get(di).getNumCmd(i) == cmdAr.get(ci)){
-                        stCmd.append(numD).append(execDevs.get(di).getCmdParamStr(i)).append(";");
-                    }
-                }
-            }
-            list.add(list.size(), stCmd.toString());
-        }
 
         String fileName = getApplicationContext().getFilesDir().toString() + "/Commands";
         try {
@@ -1421,7 +1572,50 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             e.printStackTrace();
         }
     }
+*/
 
+    private void taskReadMemory() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                readMemOk = true;
+                for (int i = 0; i < execDevs.size(); i++) {
+                    readDevMem(execDevs.get(i).getDevNum());
+                }
+                Bundle bundle = new Bundle();
+                Message msg = handler.obtainMessage();
+                bundle.putInt("ThreadEnd", MSG_END_READMEM);
+                msg.setData(bundle);
+                handler.sendMessage(msg);
+
+                ArrayList<Integer> cmdAr = new ArrayList<>();
+                for (int di = 0; di < execDevs.size(); di++) {
+                    int count = execDevs.get(di).getCmdCount();
+                    for (int i = 0; i < count; i++) {
+                        int cmd = execDevs.get(di).getNumCmd(i);
+                        if (!cmdAr.contains(cmd)){
+                            cmdAr.add(cmdAr.size(), cmd);
+                        }
+                    }
+                }
+                Collections.sort(cmdAr);
+                commandList.clear();
+                for (int ci = 0; ci < cmdAr.size(); ci++) {
+                    StringBuilder stCmd = new StringBuilder(String.format(Locale.getDefault(), "%05d=", cmdAr.get(ci)));
+                    for (int di = 0; di < execDevs.size(); di++) {
+                        String numD = String.format(Locale.getDefault(), "%02x", execDevs.get(di).getDevNum());
+                        for (int i = 0; i < execDevs.get(di).getCmdCount(); i++) {
+                            if (execDevs.get(di).getNumCmd(i) == cmdAr.get(ci)){
+                                stCmd.append(numD).append(execDevs.get(di).getCmdParamStr(i)).append(";");
+                            }
+                        }
+                    }
+                    commandList.add(commandList.size(), stCmd.toString());
+                }
+
+            }
+        }).start();
+    }
 
 
     private void taskAfterConnect(){
@@ -1492,14 +1686,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                             byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
                             if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)) {
                                 sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
-                                /*
-                                if (snd >= 0) {
-                                    int count = sUDP.waitBuf.get(snd).packet[9] - 3;
-                                    byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(snd).packet, 12, count + 12);
-                                    sensors.get(sInd).setData(buf);
-                                    Log.i(TAG, "MSG_SENSOR_STATE in Main");
-                                }
-                                */
                             }
 
                         }
@@ -1519,14 +1705,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 buffTime[7] = (byte) cl.get(Calendar.MINUTE);
                 buffTime[8] = (byte) cl.get(Calendar.SECOND);
                 askUDP(buffTime, MSG_RCV_OK, 0);
-
-                Date d = cl.getTime();
-                SimpleDateFormat sdf = new SimpleDateFormat("yy-mm-dd hh:mm");
-                String s = sdf.format(d);
-                Log.i(TAG, s);
-                d.setTime(d.getTime() - 5000);
-                s = sdf.format(d);
-                Log.i(TAG, s);
 
                 for (int i = 0; i <execDevs.size() ; i++) {
                     byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
@@ -1577,18 +1755,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 parceFromDevice(buf);
                 break;
 
-            case Msg_LiconIP:
-                liconIP = String.format(Locale.getDefault(), "%d.%d.%d.%d", buf[1]&0xFF, buf[2]&0xFF, buf[3]&0xFF, buf[4]&0xFF);
-                liconName="";
-                if (buf.length>5){
-                    liconName = new String(Arrays.copyOfRange(buf, 5, buf.length), StandardCharsets.UTF_8);
-                }
-                if (!liconName.equals(""))
-                    Toast.makeText(this, "LiCon found at "+liconName, Toast.LENGTH_SHORT).show();
-                else
-                    Toast.makeText(this, "LiCon found at "+liconIP, Toast.LENGTH_SHORT).show();
-                break;
-
         }
     }
 
@@ -1601,24 +1767,65 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 if (outsCount>0){                 // add only OutCount>0
                     if (getDevIndex(buf[1]&0xFF)<0){
                         int ind = execDevs.size();
-                        execDevs.add(new ExecDevice(buf[1]&0xFF, (byte) 0, outsCount));
+                        int devType = buf[4]&0xFF;
+                        execDevs.add(new ExecDevice(buf[1]&0xFF, devType, (byte) 0, outsCount));
 
                         for (int i = 0; i <outsCount ; i++) {
                             if (execDevs.get(ind).getLampText(i).equals("")){
-                                String dkey = String.format(Locale.getDefault(), "D%03d%02d", buf[1]&0xFF, i+1);
-                                String key = namesFile.getProperty(dkey, "");
-                                if (!key.equals("")){
-                                    execDevs.get(ind).setLampText(i, key);
-                                }
+                                String dkey = String.format(Locale.getDefault(), "D%03d%02d", buf[1]&0xFF, i);
+                                execDevs.get(ind).setRoomText(i, outNames.getStr(dkey+"R"));
+                                execDevs.get(ind).setLampText(i, outNames.getStr(dkey+"N"));
+//                                String key = namesFile.getProperty(dkey, "");
+//                                if (!key.equals("")){
+//                                    execDevs.get(ind).setLampText(i, key);
+//                                }
                             }
                         }
                     }
                 }
                 break;
-            case MSG_OUT_STATE:
-                break;
             case MSG_STATE:
+            case MSG_OUT_STATE:
+                int nDev = buf[4]&0xFF;
+                byte stOut = buf[5];
+                devInd = getDevIndex(nDev);
+                if (canClearChGroup){
+                    chAdapter.clear();
+                }
+                if (devInd>=0){
+                    byte lState = execDevs.get(devInd).getLastOutState();
+                    execDevs.get(devInd).setLastOutState(stOut);
+                    byte mask = (byte) (lState ^ stOut);
+                    if (mask>0){
+                        for (int i = 0; i < execDevs.get(devInd).getOutCount(); i++) {
+                            if ((mask & 1)>0){
+                                chGroups.add(new ChangedGroup(nDev, i, (stOut & 1)==1));
+                                chGroups.get(chGroups.size()-1).setRoom(execDevs.get(devInd).getRoomText(i));
+                                chGroups.get(chGroups.size()-1).setName(execDevs.get(devInd).getLampText(i));
+                                chAdapter.notifyDataSetChanged();
+                            }
+                            mask = (byte) (mask >> 1);
+                            stOut = (byte) (stOut >> 1);
+                        }
+
+                    }
+                }
+                canClearChGroup = false;
+
+                lnTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        canClearChGroup = true;
+                    }
+                };
+                if (lntimer==null){
+                    lntimer = new Timer();
+                }
+                lntimer.schedule(lnTask, 1000, 1000);
+
+
                 break;
+//                break;
 
             case MSG_DEVICE_KIND:
                 int devN = buf[1] & 0xFF;
@@ -1740,116 +1947,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
         }
     }
-
-    private void askLiConData(){
-        new Thread(() -> {
-            byte[] ask = {0, 0, 0, 1, ASK_FOR_DATA};
-            int port = 55300;
-            boolean doRead = true;
-            try {
-                Socket socket = new Socket(liconIP, port);
-                OutputStream os = socket.getOutputStream();
-                os.write(ask, 0, ask.length);
-                os.flush();
-
-//                    InputStream is;
-                while (doRead){
-                    InputStream is = socket.getInputStream();
-                    int first = is.read();
-                    int count;
-                    switch (first){
-                        case DATA_NOT_LOAD:
-                            runOnUiThread(() -> Toast.makeText(getApplicationContext(), getText(R.string.no_licon_data), Toast.LENGTH_LONG).show());
-                            Log.i(TAG, " From LoCon:  project not load");
-                            doRead=false;
-                            is.close();
-                            break;
-                            /*
-                        case DATA_SUCSESS:
-                            count = is.available();
-                            Log.i(TAG, " From LoCon:  got data sucsess, count = " + count);
-                            clonePrefs();
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
-                                }
-                            });
-                            is.close();
-                            doRead=false;
-                            break;
-
-                             */
-                        case LICON_NAMES:
-                            count = is.available();
-                            byte[] cb = new byte[count];
-                            count = is.read(cb, 0, count);
-                            File file = new File(getApplicationContext().getFilesDir().toString(), "OutNames");
-                            FileOutputStream fos = new FileOutputStream(file);
-                            fos.write(cb, 0, count);
-                            fos.flush();
-                            fos.close();
-//                                SharedPreferences.Editor editor = prefs.edit();
-//                                editor.putString("key_names", file.getName());
-//                                editor.apply();
-                            namesFile.load(new FileInputStream(file));
-                            for (int ind = 0; ind<execDevs.size(); ind++){
-                                int outsCount = execDevs.get(ind).getOutCount();
-                                if (outsCount>0){
-                                    for (int i = 0; i <outsCount ; i++) {
-                                        if (execDevs.get(ind).getLampText(i).equals("")){
-                                            String dkey = String.format(Locale.getDefault(), "D%03d%02d", execDevs.get(ind).getDevNum(), i+1);
-                                            String key = namesFile.getProperty(dkey, "");
-                                            if (!key.equals("")){
-                                                execDevs.get(ind).setLampText(i, key);
-                                            }
-                                        }
-                                    }
-
-                                }
-                             }
-//                                clonePrefs();
-                            is.close();
-                            doRead=false;
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Toast.makeText(getApplicationContext(), getText(R.string.licon_data_got), Toast.LENGTH_LONG).show();
-                                }
-                            });
-                            Log.i(TAG, " From LoCon:  got names, count = " + count);
-                            break;
-                            /*
-                        case CMD_DATA:
-                            count = is.available();
-                            byte[] cmb = new byte[count];
-                            count = is.read(cmb, 0, count);
-                            File fcmd = new File(getApplicationContext().getFilesDir().toString(), "Commands");
-                            FileOutputStream fcos = new FileOutputStream(fcmd);
-                            fcos.write(cmb, 0, count);
-                            fcos.flush();
-                            fcos.close();
-                            editor.putString("key_commands", fcmd.getName());
-                            editor.apply();
-                            Log.i(TAG, " From LiCon:  got commands data, count = " + count);
-                            break;
-
-                             */
-                    }
-//                        is.close();
-
-                }
-                os.close();
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
-
-
-
 
     //-------------------------------------------------------------------------------------------------------------------------------------------------
     /*
@@ -2025,6 +2122,50 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
 
     }
+
+//-----------------------------------------------------------Log adapter----------------------------------------------------------------------------
+    private class ChangeAdapter extends ArrayAdapter<ChangedGroup>{
+
+        private List<ChangedGroup> groups;
+
+    public ChangeAdapter(@NonNull Context context, int resource, @NonNull List<ChangedGroup> objects) {
+        super(context, resource, objects);
+        groups = objects;
+    }
+
+    @NonNull
+    @Override
+    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+        @SuppressLint("ViewHolder") View item = getLayoutInflater().inflate(R.layout.change_list_item, parent, false);
+        Button btn = item.findViewById(R.id.ch_btn);
+        TextView tnDev = item.findViewById(R.id.ch_ndev);
+        TextView tnOut = item.findViewById(R.id.ch_nOut);
+        TextView tName = item.findViewById(R.id.ch_Name);
+
+        tnDev.setText(String.valueOf(groups.get(position).getNDev()));
+        tnOut.setText(String.valueOf(groups.get(position).getnOut()));
+        String name = groups.get(position).getRoom();
+        if (!name.equals("")){
+            name += ", ";
+        }
+        name += groups.get(position).getName();
+        tName.setText(name);
+
+
+        if (groups.get(position).isOnState()){
+            btn.setBackgroundResource(R.drawable.sq_btn_activ_color);
+        }else{
+            btn.setBackgroundResource(R.drawable.sq_btn_color);
+        }
+
+
+
+
+        return item;
+    }
+}
+
+//-----------------------------------------------------------Log adapter----------------------------------------------------------------------------
 
     private class LogDataAdapter extends ArrayAdapter<LogRecord> {
 

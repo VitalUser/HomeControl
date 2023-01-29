@@ -3,10 +3,16 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
     xmlns:android="http://schemas.android.com/apk/res/android" >
 
-     <PreferenceCategory
-         android:title="@string/network_setting">
+    <PreferenceCategory
+         android:title="@string/network_setting"
+        android:key="id_cat_network">
 
-         <EditTextPreference
+        <SwitchPreference
+            android:title="@string/noPassEnt"
+            android:defaultValue="false"
+            android:key="id_cb_NoPass" />
+
+        <EditTextPreference
              android:key="key_udppass"
              android:title="@string/pass"
              android:inputType="number"

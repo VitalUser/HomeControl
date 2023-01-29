@@ -15,9 +15,9 @@ import java.util.Set;
 
 public class Config {
     private static final String TAG = "MyclassConfig";
-    private Properties iniFile;
-    private String configurationFile = "Config.ini";
-    private String filePath;
+    private final Properties iniFile;
+    private final String configurationFile = "Config.ini";
+    private final String filePath;
 //    private File file;
 
     Config(String fPath) {
@@ -54,13 +54,6 @@ public class Config {
 
     private void save() {
         File file = new File(filePath, configurationFile);
-        /*
-        if (file.delete()){
-            Log.i("File deleted " + file.toString());
-        }else{
-            Log.i("File not deleted ");
-        }
-        */
         try {
             FileOutputStream fOut = new FileOutputStream(file);
             iniFile.store(fOut,null);
@@ -93,7 +86,6 @@ public class Config {
     }
 
     public void setStr(String key, String value) {
-//        Log.i(TAG, " Config SetStr: " + key + " = " + value);
         load();
         iniFile.setProperty(key, value);
         save();

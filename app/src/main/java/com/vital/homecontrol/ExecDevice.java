@@ -11,20 +11,70 @@ import java.util.Locale;
 public class ExecDevice implements Parcelable {
     private static final String TAG = "MyclassExecDevice";
     private int mDevNum;
+    private int mType;
     private byte mOutState;
+    private byte mLastOutState;
     private int mOutCount;
     private boolean mReadMem;
     private String[] mLampText;
-    private ArrayList<Byte> mem;
 
-    public ExecDevice(int devNum, byte outState, int outCount){
+    private String[] mRoomText;
+    private int mMemSize;
+    private int mMemblock;
+    private Byte[] mem;
+    private final Byte zero = 0;
+
+    public ExecDevice(int devNum, int devType, byte outState, int outCount){
         this.mDevNum = devNum;
         this.mOutState = outState;
+        this.mLastOutState = 0;
         this.mOutCount = outCount;
         this.mReadMem = false;
         this.mLampText = new String[outCount];
         Arrays.fill(this.mLampText, "");
-        mem = new ArrayList<>();
+        this.mRoomText = new String[outCount];
+        this.mType = devType;
+        switch (mType & 0x70){
+            case 0x10:
+                mMemSize = 64;
+                break;
+            case 0x20:
+                mMemSize = 128;
+                break;
+            case 0x30:
+                mMemSize = 256;
+                break;
+            case 0x40:
+                mMemSize = 512;
+                break;
+            case 0x50:
+                mMemSize = 1024;
+                break;
+            case 0x60:
+                mMemSize = 2048;
+                break;
+            default:
+                mMemSize = 0;
+        }
+        this.mem = new Byte[mMemSize];
+        Arrays.fill(this.mem, zero);
+
+        switch (mType & 0x0C){
+            case 0x00:
+                mMemblock = mMemSize;
+                break;
+            case 0x04:
+                mMemblock = 16;
+                break;
+            case 0x08:
+                mMemblock = 64;
+                break;
+            case 0x0C:
+                mMemblock = 128;
+                break;
+            default:
+                mMemblock = 0;
+        }
     }
 
     public ExecDevice(Parcel in) {
@@ -34,10 +84,6 @@ public class ExecDevice implements Parcelable {
         mDevNum = data[0];
         mOutState = (byte) data[1];
     }
-
-//    public void setDevNum(int devNum){
-//        mDevNum = devNum;
-//    }
 
     public void setOutState(byte outState){
         Log.i(TAG, " setOutState: "+outState );
@@ -64,9 +110,38 @@ public class ExecDevice implements Parcelable {
         }
     }
 
+    public String getRoomText(int index){
+        if (index<this.mRoomText.length){
+            return this.mRoomText[index];
+        }else{
+            return "";
+        }
+    }
+
+    public String getFullText(int index){
+        if (index<this.mRoomText.length){
+            String name = "";
+            if (!this.mRoomText[index].equals("")){
+                name += this.mRoomText[index] + ", ";
+            }
+            name += this.mLampText[index];
+            return name;
+        }else{
+            return "";
+        }
+    }
+
+
+
     public void setLampText(int index, String lampText){
         if (index<this.mLampText.length){
             this.mLampText[index]=lampText;
+        }
+    }
+
+    public void setRoomText(int index, String roomText){
+        if (index<this.mRoomText.length){
+            this.mRoomText[index]=roomText;
         }
     }
 
@@ -93,25 +168,31 @@ public class ExecDevice implements Parcelable {
         }
     };
 
-    public void addMem(byte[] inbuf){
-        for (byte b : inbuf) {
-            this.mem.add(this.mem.size(), b);
+    public void addMem(byte[] inbuf, int addr, int count){
+        for (int i = 0; i < count; i++) {
+            this.mem[addr+i] = inbuf[i];
+        }
+    }
+
+    public void writeMem(byte data, int addr){
+        if (addr<this.mem.length){
+            this.mem[addr]=data;
         }
     }
 
     public int getNumCmd(int index){
-        int offs = 1 + index*5;
-        if ((offs+1)<this.mem.size()){
-            return (this.mem.get(offs) & 0xFF) * 0x100 + (this.mem.get(offs+1) & 0xFF);
+        int offs = 0xB1 + index*5;
+        if ((offs+1)<this.mem.length){
+            return (this.mem[offs] & 0xFF) * 0x100 + (this.mem[offs+1] & 0xFF);
         }else {
             return 0;
         }
     }
 
     public String getCmdParamStr(int index){
-        int offs = 1 + index*5;
-        if ((offs+4)<this.mem.size()){
-            return String.format(Locale.getDefault(), "%02x%02x%02x", this.mem.get(offs+2), this.mem.get(offs+3), this.mem.get(offs+4));
+        int offs = 0xB1 + index*5;
+        if ((offs+4)<this.mem.length){
+            return String.format(Locale.getDefault(), "%02x%02x%02x", this.mem[offs+2], this.mem[offs+3], this.mem[offs+4]);
         }else {
             return "000000";
         }
@@ -126,20 +207,35 @@ public class ExecDevice implements Parcelable {
     }
 
     public void clearMem(){
-        this.mem.clear();
+        Arrays.fill(this.mem, zero);
         this.mReadMem = false;
     }
 
     public boolean memEmpty(){
-        return this.mem.size()==0;
+        return this.mem.length==0;
     }
 
     public int getCmdCount(){
-        if (this.mem.size()>0){
-            return mem.get(0);
+        if (this.mem.length>0){
+            return mem[0xB0];
         }else{
             return 0;
         }
     }
 
+    public byte getLastOutState() {
+        return mLastOutState;
+    }
+
+    public void setLastOutState(byte LastOutState) {
+        this.mLastOutState = LastOutState;
+    }
+
+    public int getMemSize(){
+        return this.mMemSize;
+    }
+
+    public int getMemblock(){
+        return this.mMemblock;
+    }
 }

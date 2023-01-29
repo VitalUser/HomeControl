@@ -31,21 +31,27 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_GetNames"
+        android:id="@+id/action_Learning"
         android:orderInCategory="6"
-        android:title="@string/getnames"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_GetCommands"
-        android:orderInCategory="7"
-        android:title="@string/getcmds"
+        android:title="Learning"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_ShowLog"
-        android:orderInCategory="8"
+        android:orderInCategory="7"
         android:title="@string/showLog"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_SetPass"
+        android:orderInCategory="8"
+        android:title="@string/setNewPass"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_SetSerial"
+        android:orderInCategory="9"
+        android:title="@string/setNewSerial"
         app:showAsAction="never" />
 
 </menu>

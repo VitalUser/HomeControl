@@ -115,4 +115,11 @@
     <string name="secs">s</string>
     <string name="cursor">Cursor</string>
     <string name="scale">Scale</string>
+    <string name="setNewPass">Set new Pass</string>
+    <string name="setNewSerial">Set new serial</string>
+    <string name="noPassEnt">No Pass</string>
+    <string name="titleNewPass">New Pass (max 6 digits)</string>
+    <string name="changed_group">Changed Group</string>
+    <string name="set_name">Set name</string>
+    <string name="get_room">Get room</string>
 </resources>

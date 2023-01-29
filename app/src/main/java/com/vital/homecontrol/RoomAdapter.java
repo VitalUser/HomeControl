@@ -45,14 +45,10 @@ public class RoomAdapter extends FragmentPagerAdapter {
         }else{
             return super.getItemPosition(object);
         }
-       /*
+    }
 
-        int ind = names.indexOf(object);
-        if (ind == -1)
-          return  POSITION_NONE;
-        else
-          return ind;
-          */
+    public int getRoomPosition(String room){
+        return names.indexOf(room);
     }
 
     @Override

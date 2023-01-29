@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
@@ -41,6 +42,9 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -742,6 +746,19 @@ public class PageFragment extends Fragment {
             case M_SET_CMD:
 //                cInd = getControlIndexByNum(btnNum);
                 int cmdCount = 0;
+
+                cmds.clear();
+                for (int i = 0; i < act.commandList.size(); i++) {
+                    StringReader rd = new StringReader(act.commandList.get(i));
+                    try {
+                        cmds.load(rd);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                cmdCount = cmds.size();
+
+                /*
                 String cmdf = prefs.getString("key_commands", "");
                 if (!Objects.equals(cmdf, "")){
                     assert cmdf != null;
@@ -749,7 +766,6 @@ public class PageFragment extends Fragment {
                     if (fileC.exists()){
                         try {
                             cmds.load(new FileInputStream(fileC));
-                            cmdCount = cmds.size();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -757,6 +773,7 @@ public class PageFragment extends Fragment {
                     }
 
                 }
+                */
                 dlg = new AlertDialog.Builder(getActivity());
                 if (cmdCount>0){
                     View view = getLayoutInflater().inflate(R.layout.layout_cmd_dlg, vGroup, false);
@@ -885,11 +902,15 @@ public class PageFragment extends Fragment {
                     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                         lamps.clear();
                         for (int i = 0; i <act.execDevs.get(position).getOutCount() ; i++) {
-                            String lItem = act.execDevs.get(position).getLampText(i);
-                            if (lItem.equals("")){
+                            String name = act.execDevs.get(position).getFullText(i);
+//                            if (!name.equals("")){
+//                                name += ", ";
+//                            }
+//                            name = act.execDevs.get(position).getFullText(i);
+                            if (name.equals("")){
                                 lamps.add(getString(R.string.lightgroup)+" "+(i+1));
                             }else{
-                                lamps.add(lItem);
+                                lamps.add(name);
                             }
                         }
                         lvadapter.notifyDataSetChanged();
@@ -1312,7 +1333,7 @@ public class PageFragment extends Fragment {
                 case 0x00:
                     if (((content & 0x03)==0x03)&&(par1==0)){
                         if (dind>=0){
-                            lt = act.execDevs.get(dind).getLampText((content >> 4)-1);
+                            lt = act.execDevs.get(dind).getFullText((content >> 4)-1);
                         }else{
                             lt = "";
                         }
@@ -1322,7 +1343,7 @@ public class PageFragment extends Fragment {
                     }else{
                         if (((content & 0x03)>0)&&((content & 0xF0)>0)){
                             if (dind>=0){
-                                lt = act.execDevs.get(dind).getLampText((content >> 4)-1);
+                                lt = act.execDevs.get(dind).getFullText((content >> 4)-1);
                             }else{
                                 lt = "";
                             }
