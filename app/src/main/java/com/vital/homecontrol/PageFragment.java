@@ -134,6 +134,8 @@ public class PageFragment extends Fragment {
     private int mPage;
     private int colCount;
     private int rowCount;
+    private int touchRow;
+    private int touchCol;
 
     private View selectedView;
     private ViewGroup vGroup;
@@ -168,6 +170,7 @@ public class PageFragment extends Fragment {
             mPage = getArguments().getInt(ARG_PAGE);
         }
         act = (MainActivity)getActivity();
+        orientation = Objects.requireNonNull(act).getResources().getConfiguration().orientation;
         prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
         cmds = new Properties();
 
@@ -327,7 +330,7 @@ public class PageFragment extends Fragment {
         int pd = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_button_padding", "2")));
         cellButton.setPadding(pd,pd,pd,pd);
         Button btn = cellButton.findViewById(R.id.ctr_button);
-        registerForContextMenu(btn);
+//        registerForContextMenu(btn);
         final int num = controls.get(cInd).getNum();
         cellButton.setTag(R.id.ctr_num, num);
         btn.setTag(R.id.v_type, IS_BUTTON);
@@ -371,9 +374,9 @@ public class PageFragment extends Fragment {
     private View makeSensor(int cInd, int row, int col){
         LinearLayout cellSensor = (LinearLayout) LayoutInflater.from(getActivity()).inflate(R.layout.sns_element, vGroup, false);
         cellSensor.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+        TextView sensValue = cellSensor.findViewById(R.id.sns_value);
         TextView sensText = cellSensor.findViewById(R.id.sns_text);
         TextView sensUpText = cellSensor.findViewById(R.id.sns_up_text);
-        TextView sensValue = cellSensor.findViewById(R.id.sns_value);
 //        registerForContextMenu(sensValue);
         final int num = controls.get(cInd).getNum();
         cellSensor.setTag(R.id.ctr_num, num);
@@ -418,12 +421,15 @@ public class PageFragment extends Fragment {
         public boolean onLongClick(View vw) {
 
             View view = (View) vw.getParent();
+            touchCol = (int) vw.getTag(R.id.tbl_col);
+            touchRow = (int) vw.getTag(R.id.tbl_row);
             ClipData.Item item = new ClipData.Item((CharSequence) view.getTag(R.id.ctr_num).toString());
             String[] mimeTypes = {ClipDescription.MIMETYPE_TEXT_PLAIN};
             ClipData data = new ClipData(view.getTag(R.id.ctr_num).toString(), mimeTypes, item);
             View.DragShadowBuilder dsb = new View.DragShadowBuilder(view);
             view.startDragAndDrop(data, dsb, view, 0);
-            return true;         }
+            return true;
+        }
     };
 
     View.OnDragListener dragListener = new View.OnDragListener() {
@@ -432,6 +438,12 @@ public class PageFragment extends Fragment {
             int action = de.getAction();
             int w = mTable.getWidth()/colCount;
             int h = mTable.getHeight()/rowCount;
+            String orientTag;
+            if (orientation==Configuration.ORIENTATION_PORTRAIT){
+                orientTag = BTN_PA;
+            }else{
+                orientTag = BTN_LA;
+            }
             switch (action){
                 case DragEvent.ACTION_DRAG_STARTED:
                     act.mappedIpText.setText("Start");
@@ -484,26 +496,81 @@ public class PageFragment extends Fragment {
                     y = de.getY();
                     col = (int) (x/w);
                     row = (int) (y/h);
-                    vcols = (ViewGroup) mTable.getChildAt(row);
-                    cell = vcols.getChildAt(col);
-                    dest = (ViewGroup) vcols.getChildAt(col);
-                    if (dest.getChildCount()==0){
-                        View vw = (View) de.getLocalState();
-                        ViewGroup owner = (ViewGroup) vw.getParent();
-                        owner.removeView(vw);
-                        owner.invalidate();
+                    View vw = (View) de.getLocalState();
 
-//                    LinearLayout contaner = (LinearLayout) cell;
-                        ((LinearLayout) cell).addView(vw);
-                        vw.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+//                    View vt = ((ViewGroup) de.getLocalState()).getChildAt(0);
 
-//                    contaner.addView(vw);
-                        vw.setVisibility(View.VISIBLE);
-                        act.statusText.setText("Dropped");
 
-                        act.linkTText.setText("Empty");
+                    View vt;
+                    int chCount = ((ViewGroup)de.getLocalState()).getChildCount();
+                    int ctrlInd = 0;
+                    if (chCount!=1){
+                        for (int i = 0; i < chCount; i++) {
+                            View dd = ((ViewGroup)de.getLocalState()).getChildAt(i);
+                            if (dd.getTag(R.id.ctr_num) != null){
+                                ctrlInd = i;
+                            }
+                        }
+                    }
+                    vt = ((ViewGroup)de.getLocalState()).getChildAt(ctrlInd);
+
+
+                    if ((col==touchCol-1)&&(row==touchRow-1)){
+                        registerForContextMenu(vt);
+                        vt.showContextMenu();
+                        act.statusText.setText("Self");
                     }else{
-                        act.linkTText.setText("Busy");
+                        vcols = (ViewGroup) mTable.getChildAt(row);
+                        cell = vcols.getChildAt(col);
+                        dest = (ViewGroup) vcols.getChildAt(col);
+                        if (dest.getChildCount()==0){
+                            ViewGroup owner = (ViewGroup) vw.getParent();
+                            owner.removeView(vw);
+                            owner.invalidate();
+                            registerForContextMenu(owner);
+                            unregisterForContextMenu(dest);
+
+                            ((LinearLayout) cell).addView(vw);
+                            vw.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+
+                            View ctrlView;
+                            chCount = ((ViewGroup)vw).getChildCount();
+                            ctrlInd = 0;
+                            if (chCount!=1){
+                                for (int i = 0; i < chCount; i++) {
+                                    View dd = ((ViewGroup)vw).getChildAt(i);
+                                    if (dd.getTag(R.id.ctr_num) != null){
+                                        ctrlInd = i;
+                                    }
+                                }
+                            }
+                            ctrlView = ((ViewGroup)vw).getChildAt(ctrlInd);
+
+
+                            if (ctrlView!=null){
+                                ctrlView.setTag(R.id.tbl_col, col+1);
+                                ctrlView.setTag(R.id.tbl_row, row+1);
+                                int num = (int) ctrlView.getTag(R.id.ctr_num);
+                                int ind=getControlIndexByNum(num);
+                                if (ind>=0){
+                                    String textNum = String.format(Locale.getDefault(), "N%02d%03d", mPage, num);
+                                    act.delKey(orientTag+textNum);
+                                    act.saveInt(orientTag+textNum, (row+1)*100+col+1);
+                                    controls.get(ind).setLocation(orientation, (row+1)*100+col+1);
+
+                                }
+                            }
+
+
+
+                            vw.setVisibility(View.VISIBLE);
+                            act.statusText.setText("Dropped");
+
+                            act.linkTText.setText("Empty");
+                        }else{
+                            act.linkTText.setText("Busy");
+                        }
+
                     }
 
                     return true;
@@ -653,8 +720,6 @@ public class PageFragment extends Fragment {
         if (!getUserVisibleHint()){
             return false;
         }
-        act = (MainActivity)getActivity();
-        orientation = Objects.requireNonNull(act).getResources().getConfiguration().orientation;
         final String orientTag;
         if (orientation==Configuration.ORIENTATION_PORTRAIT){
             orientTag = BTN_PA;
