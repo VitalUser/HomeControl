@@ -6,13 +6,14 @@ import android.annotation.SuppressLint;
 //import android.app.AlertDialog;
 import androidx.appcompat.app.AlertDialog;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
-import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
@@ -22,6 +23,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.text.InputType;
 import android.util.Log;
 import android.view.ContextMenu;
+import android.view.DragEvent;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -39,11 +41,7 @@ import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,7 +121,7 @@ public class PageFragment extends Fragment {
     private final int M_REN_BTN     = 5;
     private final int M_DEL_BTN     = 6;
     private final int M_SET_CMD     = 7;
-//    private final int M_SET_NDEV    = 8;
+//    private final int M_MOV_BTN     = 8;
     private final int M_SET_MASK    = 9;
 //    private final int M_SET_CHNG    = 10;
     private final int M_REN_SNS     = 11;
@@ -134,6 +132,9 @@ public class PageFragment extends Fragment {
     private final int M_SHOW_STAT   = 16;
 
     private int mPage;
+    private int colCount;
+    private int rowCount;
+
     private View selectedView;
     private ViewGroup vGroup;
     private ViewGroup mTable;
@@ -233,24 +234,22 @@ public class PageFragment extends Fragment {
         vGroup = container;
         final String sufOr;
 
-        int cols;
-        int rows;
-        int orientation = act.getResources().getConfiguration().orientation;
+;        int orientation = act.getResources().getConfiguration().orientation;
         switch (orientation){
             case Configuration.ORIENTATION_LANDSCAPE:
                 sufOr="_L_";
-                cols = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_L", "6")));
-                rows = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_L", "4")));
+                colCount = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_L", "6")));
+                rowCount = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_L", "4")));
                 break;
             case Configuration.ORIENTATION_PORTRAIT:
                 sufOr="_P_";
-                cols = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_P", "4")));
-                rows = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_P", "6")));
+                colCount = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_colsCount_P", "4")));
+                rowCount = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_rowsCount_P", "6")));
                 break;
             default:
                 sufOr="_N_";
-                cols =3;
-                rows =3;
+                colCount =3;
+                rowCount =3;
         }
 
         TableLayout tl = view.findViewById(R.id.tlb_Layout);
@@ -269,15 +268,15 @@ public class PageFragment extends Fragment {
         int w = act.readInt(CELL_W+sufOr);
         int h = act.readInt(CELL_H+sufOr);
 
-        for (int row = 1; row < rows+1; row++) {
+        for (int row = 1; row < rowCount+1; row++) {
             TableRow tableRow = new TableRow(getActivity());
             tableRow.setLayoutParams(new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.MATCH_PARENT, 1));
 
-            for (int col = 1; col < cols+1; col++) {
+            for (int col = 1; col < colCount +1; col++) {
 
                 LinearLayout cell = new LinearLayout(getActivity());
                 if ((w>0)&&(h>0)){
-                    cell.setLayoutParams(new TableRow.LayoutParams(w/ cols, h/ rows));
+                    cell.setLayoutParams(new TableRow.LayoutParams(w/ colCount, h/ rowCount));
                 }else{
                     cell.setLayoutParams(new TableRow.LayoutParams(TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.MATCH_PARENT, 1));
                 }
@@ -310,6 +309,8 @@ public class PageFragment extends Fragment {
         }
         mTable = tl;
 
+        tl.setOnDragListener(dragListener);
+
         Log.i(TAG, " onCreateView PageFragment " + mPage);
         return view;
     }
@@ -328,6 +329,7 @@ public class PageFragment extends Fragment {
         Button btn = cellButton.findViewById(R.id.ctr_button);
         registerForContextMenu(btn);
         final int num = controls.get(cInd).getNum();
+        cellButton.setTag(R.id.ctr_num, num);
         btn.setTag(R.id.v_type, IS_BUTTON);
         btn.setTag(R.id.ctr_num, num);
         btn.setTag(R.id.tbl_col, col);
@@ -346,6 +348,10 @@ public class PageFragment extends Fragment {
                 act.sendCommand(cmd);
             }
         });
+
+
+
+        btn.setOnLongClickListener(longCL);
 
 //        TextView text = cellButton.findViewById(R.id.ctr_text);
 //        text.setText(controls.get(cInd).getText());
@@ -368,8 +374,9 @@ public class PageFragment extends Fragment {
         TextView sensText = cellSensor.findViewById(R.id.sns_text);
         TextView sensUpText = cellSensor.findViewById(R.id.sns_up_text);
         TextView sensValue = cellSensor.findViewById(R.id.sns_value);
-        registerForContextMenu(sensValue);
+//        registerForContextMenu(sensValue);
         final int num = controls.get(cInd).getNum();
+        cellSensor.setTag(R.id.ctr_num, num);
         sensValue.setTag(R.id.v_type, IS_SENSOR);
         sensValue.setTag(R.id.ctr_num, num);
         sensValue.setTag(R.id.tbl_col, col);
@@ -384,6 +391,8 @@ public class PageFragment extends Fragment {
 //                act.sendCommand(cmd);
             }
         });
+
+        sensValue.setOnLongClickListener(longCL);
 
         sensUpText.setText(controls.get(cInd).getUpText());
         int nDev = controls.get(cInd).getNumDev();
@@ -402,6 +411,117 @@ public class PageFragment extends Fragment {
 
         return cellSensor;
     }
+
+
+    View.OnLongClickListener longCL = new View.OnLongClickListener() {
+        @Override
+        public boolean onLongClick(View vw) {
+
+            View view = (View) vw.getParent();
+            ClipData.Item item = new ClipData.Item((CharSequence) view.getTag(R.id.ctr_num).toString());
+            String[] mimeTypes = {ClipDescription.MIMETYPE_TEXT_PLAIN};
+            ClipData data = new ClipData(view.getTag(R.id.ctr_num).toString(), mimeTypes, item);
+            View.DragShadowBuilder dsb = new View.DragShadowBuilder(view);
+            view.startDragAndDrop(data, dsb, view, 0);
+            return true;         }
+    };
+
+    View.OnDragListener dragListener = new View.OnDragListener() {
+        @Override
+        public boolean onDrag(View view, DragEvent de) {
+            int action = de.getAction();
+            int w = mTable.getWidth()/colCount;
+            int h = mTable.getHeight()/rowCount;
+            switch (action){
+                case DragEvent.ACTION_DRAG_STARTED:
+                    act.mappedIpText.setText("Start");
+                    if (de.getClipDescription().hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)){
+                        return true;
+                    }
+                    return false;
+                case DragEvent.ACTION_DRAG_LOCATION:
+                    float x = de.getX();
+                    float y = de.getY();
+                    int col = (int) (x/w);
+                    int row = (int) (y/h);
+
+                    ViewGroup vcols = (ViewGroup) mTable.getChildAt(row);
+                    View cell = vcols.getChildAt(col);
+                    ViewGroup dest = (ViewGroup) vcols.getChildAt(col);
+                    if (dest.getChildCount()==0){
+                        act.linkTText.setText("Empty");
+                    }else{
+                        act.linkTText.setText("Busy:");
+                    }
+
+
+//                    String ls = "rows=" + rowCount + ", cols=" + colCount + "; cur: row=" + row + ", col=" + col;
+//                    act.linkTText.setText(ls);
+                    String s = "X=" + x + ", Y="+y;
+                    act.statusText.setText(s);
+                    return true;
+                case DragEvent.ACTION_DRAG_ENTERED:
+//                    view.getBackground().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
+//                    view.invalidate();
+                    return true;
+                case DragEvent.ACTION_DRAG_EXITED:
+//                    view.getBackground().clearColorFilter();
+//                    view.invalidate();
+                    act.statusText.setText("Exit");
+
+                    return false;
+                case DragEvent.ACTION_DROP:
+//                    act.requestDragAndDropPermissions(de);
+
+                    ClipData.Item item = de.getClipData().getItemAt(0);
+                    String dragData = item.getText().toString();
+                    act.linkTText.setText(dragData);
+
+//                    view.getBackground().clearColorFilter();
+//                    view.invalidate();
+
+                    x = de.getX();
+                    y = de.getY();
+                    col = (int) (x/w);
+                    row = (int) (y/h);
+                    vcols = (ViewGroup) mTable.getChildAt(row);
+                    cell = vcols.getChildAt(col);
+                    dest = (ViewGroup) vcols.getChildAt(col);
+                    if (dest.getChildCount()==0){
+                        View vw = (View) de.getLocalState();
+                        ViewGroup owner = (ViewGroup) vw.getParent();
+                        owner.removeView(vw);
+                        owner.invalidate();
+
+//                    LinearLayout contaner = (LinearLayout) cell;
+                        ((LinearLayout) cell).addView(vw);
+                        vw.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+
+//                    contaner.addView(vw);
+                        vw.setVisibility(View.VISIBLE);
+                        act.statusText.setText("Dropped");
+
+                        act.linkTText.setText("Empty");
+                    }else{
+                        act.linkTText.setText("Busy");
+                    }
+
+                    return true;
+
+                case DragEvent.ACTION_DRAG_ENDED:
+                    if (de.getResult()){
+                        act.mappedIpText.setText("End Ok");
+                    }else{
+                        act.mappedIpText.setText("Fail");
+                    }
+                    return true;
+
+
+
+            }
+            return false;
+        }
+    };
 
 
 
