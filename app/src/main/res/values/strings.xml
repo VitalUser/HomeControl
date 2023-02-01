@@ -103,7 +103,7 @@
     <string name="Success">Success</string>
     <string name="error">Error</string>
     <string name="need_restart">To apply the changes you need to restart the application</string>
-    <string name="write_permit">Write External Storage permission \nneed to save and restore setting \nin case of delete program</string>
+    <string name="write_permit">Write External Storage permission \nis necessary to save settings \nin case of deletion of the application \nand then be able to restore them</string>
     <string name="found_settings">Previous Settings found \nRestore it?</string>
     <string name="no_pass_set">No pass set</string>
     <string name="canRotate">Allow rotate screen</string>
@@ -122,4 +122,10 @@
     <string name="changed_group">Changed Group</string>
     <string name="set_name">Set name</string>
     <string name="get_room">Get room</string>
+    <string name="anderstend">It\'s clear</string>
+    <string name="ban">disallow</string>
+    <string name="lightOn">Light is ON</string>
+    <string name="lightOff">Light is OFF</string>
+    <string name="annotation_learn">Shown here are the groups of lights that changed their state when they were last switched. By acting on the wall switches, you can identify each of the groups and give it a name.</string>
+    <string name="learning">Identify of lightgroups</string>
 </resources>

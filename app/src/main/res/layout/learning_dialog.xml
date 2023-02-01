@@ -11,8 +11,9 @@
         android:layout_height="match_parent"
         android:layout_weight="8"
         android:id="@+id/learn_note_id"
-        android:text="Annotation"
+        android:text="@string/annotation_learn"
         android:textAlignment="center"
+        android:textColor="@color/cl_btn_def_center"
         />
 
     <ListView

@@ -15,6 +15,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -136,6 +137,10 @@ public class PageFragment extends Fragment {
     private int rowCount;
     private int touchRow;
     private int touchCol;
+
+    private int exitCol = 0;
+    private int exitRrow = 0;
+
 
     private View selectedView;
     private ViewGroup vGroup;
@@ -420,6 +425,8 @@ public class PageFragment extends Fragment {
         @Override
         public boolean onLongClick(View vw) {
 
+            Vibrator v = (Vibrator) act.getSystemService(Context.VIBRATOR_SERVICE);
+            v.vibrate(10);
             View view = (View) vw.getParent();
             touchCol = (int) vw.getTag(R.id.tbl_col);
             touchRow = (int) vw.getTag(R.id.tbl_row);
@@ -444,33 +451,40 @@ public class PageFragment extends Fragment {
             }else{
                 orientTag = BTN_LA;
             }
+            float x = de.getX();
+            float y = de.getY();
+            int col = (int) (x/w);
+            int row = (int) (y/h);
             switch (action){
                 case DragEvent.ACTION_DRAG_STARTED:
-                    act.mappedIpText.setText("Start");
-                    if (de.getClipDescription().hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)){
-                        return true;
-                    }
-                    return false;
+                    exitCol = (int) (x/w);
+                    exitRrow = (int) (y/h);
+//                    act.mappedIpText.setText("Start");
+                    return de.getClipDescription().hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN);
                 case DragEvent.ACTION_DRAG_LOCATION:
-                    float x = de.getX();
-                    float y = de.getY();
-                    int col = (int) (x/w);
-                    int row = (int) (y/h);
 
-                    ViewGroup vcols = (ViewGroup) mTable.getChildAt(row);
-                    View cell = vcols.getChildAt(col);
-                    ViewGroup dest = (ViewGroup) vcols.getChildAt(col);
-                    if (dest.getChildCount()==0){
-                        act.linkTText.setText("Empty");
-                    }else{
-                        act.linkTText.setText("Busy:");
+                    if ((col<colCount)&&(row<rowCount)){
+                        if (!((col==exitCol)&(row==exitRrow))){
+                            ViewGroup vgex = (ViewGroup) mTable.getChildAt(exitRrow);
+                            View dstex = vgex.getChildAt(exitCol);
+                            dstex.setBackground(null);
+                            exitCol=col;
+                            exitRrow=row;
+                        }
+                        ViewGroup vcols = (ViewGroup) mTable.getChildAt(row);
+                        ViewGroup dest = (ViewGroup) vcols.getChildAt(col);
+                        if (dest.getChildCount()==0){
+//                        act.linkTText.setText("Empty");
+                            dest.setBackgroundResource(R.drawable.control_intent_shape);
+                        }
+
                     }
+//                    else{
+//                        act.linkTText.setText("Busy:");
+//                    }
 
-
-//                    String ls = "rows=" + rowCount + ", cols=" + colCount + "; cur: row=" + row + ", col=" + col;
-//                    act.linkTText.setText(ls);
-                    String s = "X=" + x + ", Y="+y;
-                    act.statusText.setText(s);
+//                    String s = "X=" + x + ", Y="+y;
+//                    act.statusText.setText(s);
                     return true;
                 case DragEvent.ACTION_DRAG_ENTERED:
 //                    view.getBackground().setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
@@ -479,29 +493,16 @@ public class PageFragment extends Fragment {
                 case DragEvent.ACTION_DRAG_EXITED:
 //                    view.getBackground().clearColorFilter();
 //                    view.invalidate();
-                    act.statusText.setText("Exit");
-
+//                    act.statusText.setText("Exit");
                     return false;
                 case DragEvent.ACTION_DROP:
-//                    act.requestDragAndDropPermissions(de);
-
-                    ClipData.Item item = de.getClipData().getItemAt(0);
-                    String dragData = item.getText().toString();
-                    act.linkTText.setText(dragData);
-
-//                    view.getBackground().clearColorFilter();
-//                    view.invalidate();
-
-                    x = de.getX();
-                    y = de.getY();
-                    col = (int) (x/w);
-                    row = (int) (y/h);
+//                    ClipData.Item item = de.getClipData().getItemAt(0);
+//                    String dragData = item.getText().toString();
+//                    act.linkTText.setText(dragData);
+//                    col = (int) (x/w);
+//                    row = (int) (y/h);
                     View vw = (View) de.getLocalState();
 
-//                    View vt = ((ViewGroup) de.getLocalState()).getChildAt(0);
-
-
-                    View vt;
                     int chCount = ((ViewGroup)de.getLocalState()).getChildCount();
                     int ctrlInd = 0;
                     if (chCount!=1){
@@ -512,18 +513,19 @@ public class PageFragment extends Fragment {
                             }
                         }
                     }
-                    vt = ((ViewGroup)de.getLocalState()).getChildAt(ctrlInd);
+                    View vt = ((ViewGroup)de.getLocalState()).getChildAt(ctrlInd);
 
 
                     if ((col==touchCol-1)&&(row==touchRow-1)){
                         registerForContextMenu(vt);
                         vt.showContextMenu();
-                        act.statusText.setText("Self");
+//                        act.statusText.setText("Self");
                     }else{
-                        vcols = (ViewGroup) mTable.getChildAt(row);
-                        cell = vcols.getChildAt(col);
-                        dest = (ViewGroup) vcols.getChildAt(col);
+                        ViewGroup vcols = (ViewGroup) mTable.getChildAt(row);
+                        View cell = vcols.getChildAt(col);
+                        ViewGroup dest = (ViewGroup) vcols.getChildAt(col);
                         if (dest.getChildCount()==0){
+                            dest.setBackground(null);
                             ViewGroup owner = (ViewGroup) vw.getParent();
                             owner.removeView(vw);
                             owner.invalidate();
@@ -560,31 +562,25 @@ public class PageFragment extends Fragment {
 
                                 }
                             }
-
-
-
                             vw.setVisibility(View.VISIBLE);
-                            act.statusText.setText("Dropped");
-
-                            act.linkTText.setText("Empty");
-                        }else{
-                            act.linkTText.setText("Busy");
+//                            act.statusText.setText("Dropped");
+//                            act.linkTText.setText("Empty");
                         }
+//                        else{
+//                            act.linkTText.setText("Busy");
+//                        }
 
                     }
 
                     return true;
 
                 case DragEvent.ACTION_DRAG_ENDED:
-                    if (de.getResult()){
-                        act.mappedIpText.setText("End Ok");
-                    }else{
-                        act.mappedIpText.setText("Fail");
-                    }
-                    return true;
-
-
-
+//                    if (de.getResult()){
+//                        act.mappedIpText.setText("End Ok");
+//                    }else{
+//                        act.mappedIpText.setText("Fail");
+//                    }
+                    return de.getResult();
             }
             return false;
         }
@@ -930,7 +926,6 @@ public class PageFragment extends Fragment {
 
             case M_SET_CMD:
 //                cInd = getControlIndexByNum(btnNum);
-                int cmdCount = 0;
 
                 cmds.clear();
                 for (int i = 0; i < act.commandList.size(); i++) {
@@ -941,7 +936,7 @@ public class PageFragment extends Fragment {
                         throw new RuntimeException(e);
                     }
                 }
-                cmdCount = cmds.size();
+                int cmdCount = cmds.size();
 
                 /*
                 String cmdf = prefs.getString("key_commands", "");

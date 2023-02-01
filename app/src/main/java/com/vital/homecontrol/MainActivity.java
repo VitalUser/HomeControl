@@ -22,6 +22,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Parcelable;
+import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -44,6 +45,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
@@ -53,7 +55,6 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -88,7 +89,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private IniFile outNames;
 //    private Properties namesFile;
     private String cardStorageDir;
-//    public String namesFileName;
+    private String cardConfigPath;
+    private String localFilesDir;
+
+    //    public String namesFileName;
     SharedPreferences prefs;
 
     private static final int DEF_PASS        =  0xA8A929;
@@ -302,15 +306,17 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         progressLinkDevs.setProgressTintList(ColorStateList.valueOf(Color.GREEN));
 //        progressLinkDevs.setBackgroundTintList(ColorStateList.valueOf(Color.RED));
 
-        if (config==null){
-            config = new Config(this.getFilesDir().toString());
-        }
-
-        if (outNames==null){
-            outNames = new IniFile(this.getFilesDir().toString() + "/OutNames");
-        }
-
         cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+        cardConfigPath = cardStorageDir + "/Config";
+        localFilesDir = getApplicationContext().getFilesDir().toString();
+
+        if (config==null){
+            config = new Config(localFilesDir);
+        }
+        if (outNames==null){
+            outNames = new IniFile(localFilesDir + "/OutNames");
+        }
+
         File dev = new File(cardStorageDir + "/dev.txt");
         isDev = dev.exists();
 
@@ -359,8 +365,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }else{
             pass = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_udppass", "0"))) | 0x800000;
         }
-
-
     }
 
     private void initiateStorage(){
@@ -380,14 +384,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     text.setText(R.string.write_permit);
                     text.setGravity(Gravity.CENTER);
                     dlg.setView(text);
-                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    dlg.setPositiveButton(getText(R.string.anderstend), new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_PERMISSION);
 
                         }
                     });
-                    dlg.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                    dlg.setNegativeButton(getText(R.string.ban), new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             extDenied = true;
@@ -402,7 +406,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             }
         }
         if (cardEnable){
-            cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+//            cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
             File rootDir = new File(cardStorageDir);
             if (!rootDir.exists()) {
                 if (!rootDir.mkdir()){
@@ -421,9 +425,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
 
     private void checkForSavedSettings(){
-        String cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
-        final String configPath = cardStorageDir + "/Config";
-        File cfile = new File(configPath, "Config.ini");
+//        String cardStorageDir = Environment.getExternalStorageDirectory().toString() + "/HomeControl";   // "/storage/emulated/0/HomeControl"
+//        final String configPath = cardStorageDir + "/Config";
+        File cfile = new File(cardConfigPath, "Config.ini");
         boolean confExist = cfile.exists();
         final String prefPath = cardStorageDir + "/Preferences";
         File pfile = new File(prefPath, "Preferences.xml");
@@ -438,9 +442,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
 
-                    copyFile(configPath + "/Config.ini", getApplicationContext().getFilesDir().toString() + "/Config.ini");
+                    copyFile(cardConfigPath + "/Config.ini", localFilesDir + "/Config.ini");
+                    copyFile(cardConfigPath + "/OutNames", outNames.getFilePath());
                     String fPrefFile = getApplicationContext().getPackageName()+ "_preferences.xml";   // "com.vital.homecontrol_preferences.xml"
-//                    String fPref = "data/data/"+getApplicationContext().getPackageName()+"/shared_prefs/"+fPrefFile;
                     String prefDir = "data/data/"+getApplicationContext().getPackageName()+"/shared_prefs";
                     File fprefDir = new File(prefDir);
                     boolean fprefDirExist = fprefDir.exists();
@@ -921,14 +925,15 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     private void cloneConfig(){
         if (cardEnable){
-            final String configPath = cardStorageDir + "/Config";
-            File configDir = new File(configPath);
+//            final String configPath = cardStorageDir + "/Config";
+            File configDir = new File(cardConfigPath);
             boolean configDirExist = configDir.exists();
             if (!configDirExist){
                 configDirExist = configDir.mkdir();
             }
             if (configDirExist){
-                copyFile(getApplicationContext().getFilesDir().toString() + "/Config.ini", configPath + "/Config.ini" );
+                copyFile(localFilesDir + "/Config.ini", cardConfigPath + "/Config.ini" );
+                copyFile(outNames.getFilePath(), cardConfigPath + "/OutNames");
             }
         }
     }
@@ -1002,6 +1007,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }else{
             alert.show();
         }
+    }
+
+    public void vibrate(){
+        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        v.vibrate(100);
     }
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1578,43 +1588,48 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         new Thread(new Runnable() {
             @Override
             public void run() {
-                readMemOk = true;
-                for (int i = 0; i < execDevs.size(); i++) {
-                    readDevMem(execDevs.get(i).getDevNum());
-                }
-                Bundle bundle = new Bundle();
-                Message msg = handler.obtainMessage();
-                bundle.putInt("ThreadEnd", MSG_END_READMEM);
-                msg.setData(bundle);
-                handler.sendMessage(msg);
-
-                ArrayList<Integer> cmdAr = new ArrayList<>();
-                for (int di = 0; di < execDevs.size(); di++) {
-                    int count = execDevs.get(di).getCmdCount();
-                    for (int i = 0; i < count; i++) {
-                        int cmd = execDevs.get(di).getNumCmd(i);
-                        if (!cmdAr.contains(cmd)){
-                            cmdAr.add(cmdAr.size(), cmd);
-                        }
-                    }
-                }
-                Collections.sort(cmdAr);
-                commandList.clear();
-                for (int ci = 0; ci < cmdAr.size(); ci++) {
-                    StringBuilder stCmd = new StringBuilder(String.format(Locale.getDefault(), "%05d=", cmdAr.get(ci)));
-                    for (int di = 0; di < execDevs.size(); di++) {
-                        String numD = String.format(Locale.getDefault(), "%02x", execDevs.get(di).getDevNum());
-                        for (int i = 0; i < execDevs.get(di).getCmdCount(); i++) {
-                            if (execDevs.get(di).getNumCmd(i) == cmdAr.get(ci)){
-                                stCmd.append(numD).append(execDevs.get(di).getCmdParamStr(i)).append(";");
-                            }
-                        }
-                    }
-                    commandList.add(commandList.size(), stCmd.toString());
-                }
+                readMemory();
 
             }
         }).start();
+    }
+
+    public void readMemory(){
+        readMemOk = true;
+        for (int i = 0; i < execDevs.size(); i++) {
+            readDevMem(execDevs.get(i).getDevNum());
+        }
+        Bundle bundle = new Bundle();
+        Message msg = handler.obtainMessage();
+        bundle.putInt("ThreadEnd", MSG_END_READMEM);
+        msg.setData(bundle);
+        handler.sendMessage(msg);
+
+        ArrayList<Integer> cmdAr = new ArrayList<>();
+        for (int di = 0; di < execDevs.size(); di++) {
+            int count = execDevs.get(di).getCmdCount();
+            for (int i = 0; i < count; i++) {
+                int cmd = execDevs.get(di).getNumCmd(i);
+                if (!cmdAr.contains(cmd)){
+                    cmdAr.add(cmdAr.size(), cmd);
+                }
+            }
+        }
+        Collections.sort(cmdAr);
+        commandList.clear();
+        for (int ci = 0; ci < cmdAr.size(); ci++) {
+            StringBuilder stCmd = new StringBuilder(String.format(Locale.getDefault(), "%05d=", cmdAr.get(ci)));
+            for (int di = 0; di < execDevs.size(); di++) {
+                String numD = String.format(Locale.getDefault(), "%02x", execDevs.get(di).getDevNum());
+                for (int i = 0; i < execDevs.get(di).getCmdCount(); i++) {
+                    if (execDevs.get(di).getNumCmd(i) == cmdAr.get(ci)){
+                        stCmd.append(numD).append(execDevs.get(di).getCmdParamStr(i)).append(";");
+                    }
+                }
+            }
+            commandList.add(commandList.size(), stCmd.toString());
+        }
+
     }
 
 
@@ -1627,7 +1642,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             public void run() {
                 byte[] devs = {};
                 byte[] sens = {};
-                curserial=-1;
+                curserial=0;
                 byte[] outBuf = {(byte) CMD_ASK_TYPE};
                 askUDP(outBuf, MSG_DEV_TYPE, 0);
 
@@ -1740,6 +1755,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             case MSG_DEV_TYPE:
                 if (buf.length>=7){
                     curserial=(buf[3]&0xFF)*0x1000000+(buf[4]&0xFF)*0x10000+(buf[5]&0xFF)*0x100+(buf[6]&0xFF);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putInt("curSerial", curserial);
+                    editor.apply();
                 }else{
                     curserial=0;
                 }
@@ -2118,7 +2136,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     public void updateConfig(){
         if (config==null){
-            config = new Config(this.getFilesDir().toString());
+            config = new Config(localFilesDir);
         }
 
     }
@@ -2137,13 +2155,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         @SuppressLint("ViewHolder") View item = getLayoutInflater().inflate(R.layout.change_list_item, parent, false);
-        Button btn = item.findViewById(R.id.ch_btn);
+//        Button btn = item.findViewById(R.id.ch_btn);
+        ImageView img = item.findViewById(R.id.ch_img);
         TextView tnDev = item.findViewById(R.id.ch_ndev);
-        TextView tnOut = item.findViewById(R.id.ch_nOut);
+//        TextView tnOut = item.findViewById(R.id.ch_nOut);
         TextView tName = item.findViewById(R.id.ch_Name);
 
-        tnDev.setText(String.valueOf(groups.get(position).getNDev()));
-        tnOut.setText(String.valueOf(groups.get(position).getnOut()));
+//        tnDev.setText(String.valueOf(groups.get(position).getNDev()));
+//        tnOut.setText(String.valueOf(groups.get(position).getnOut()));
         String name = groups.get(position).getRoom();
         if (!name.equals("")){
             name += ", ";
@@ -2153,9 +2172,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
 
         if (groups.get(position).isOnState()){
-            btn.setBackgroundResource(R.drawable.sq_btn_activ_color);
+            img.setBackgroundResource(R.drawable.sq_btn_activ_color);
+            tnDev.setText(R.string.lightOn);
         }else{
-            btn.setBackgroundResource(R.drawable.sq_btn_color);
+            img.setBackgroundResource(R.drawable.sq_btn_color);
+            tnDev.setText(R.string.lightOff);
         }
 
 

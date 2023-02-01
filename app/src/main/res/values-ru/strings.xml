@@ -103,7 +103,7 @@
     <string name="Success">Успешно</string>
     <string name="error">Ошибка</string>
     <string name="need_restart">Чтобы изменения вступили в силу \nнеобходимо перезапустить приложение</string>
-    <string name="write_permit">Для восстановления настроек \nв случае удаления приложения \nрекомендуется разрешить доступ к файлам</string>
+    <string name="write_permit">Доступ к файлам необходим \nдля сохранения настроек \nв случае удаления приложения и \nпоследующей возможности их восстановления</string>
     <string name="found_settings">Обнаружены сохраненные настройки \nустановленного ранее приложения \nВосстановить?</string>
     <string name="no_pass_set">No pass set</string>
     <string name="canRotate">Разрешить поворот экрана</string>
@@ -122,4 +122,10 @@
     <string name="changed_group">Changed Group</string>
     <string name="set_name">Укажите название</string>
     <string name="get_room">Выберите комнату</string>
+    <string name="anderstend">Понятно</string>
+    <string name="ban">запретить</string>
+    <string name="lightOn">Включено:</string>
+    <string name="lightOff">Выключено:</string>
+    <string name="annotation_learn">Здесь отображаются группы света, изменившие свое состояние при последнем переключении. Воздействуя на настенные выключатели можно идентифицировать каждую из групп и дать ей название</string>
+    <string name="learning">Определить группы света</string>
 </resources>

@@ -20,6 +20,10 @@ public class IniFile {
 
     }
 
+    public String getFilePath(){
+        return filePath;
+    }
+
     private void load(){
         File file = new File(filePath);
         if (!file.exists()){

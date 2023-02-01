@@ -33,7 +33,7 @@
     <item
         android:id="@+id/action_Learning"
         android:orderInCategory="6"
-        android:title="Learning"
+        android:title="@string/learning"
         app:showAsAction="never" />
 
     <item

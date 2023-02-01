@@ -4,20 +4,24 @@
     android:orientation="horizontal"
     android:id="@+id/ch_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="60dp"
+    android:background="@drawable/cell_color">
 
     <LinearLayout
         android:layout_width="60dp"
-        android:layout_height="match_parent"
+        android:layout_height="60dp"
         android:orientation="horizontal"
+        android:padding="10dp"
         android:id="@+id/ch_btn_layout">
 
-        <Button
+        <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:contentDescription="Change group"
-            android:focusable="false"
-            android:id="@+id/ch_btn"/>
+            android:id="@+id/ch_img"
+            android:background="@drawable/sq_btn_color"/>
+
+
+
     </LinearLayout>
 
     <LinearLayout
@@ -28,7 +32,7 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="30dp"
+            android:layout_height="25dp"
             android:id="@+id/ch_dev_out_layout"
             android:orientation="horizontal">
 
@@ -46,7 +50,8 @@
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="30dp"
+            android:layout_height="35dp"
+            android:textSize="20sp"
             android:id="@+id/ch_Name"
             />
 
