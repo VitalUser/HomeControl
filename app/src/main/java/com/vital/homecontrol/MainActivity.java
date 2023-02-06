@@ -34,6 +34,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
+import android.view.DragEvent;
 import android.view.Gravity;
 import android.view.Menu;
 import com.google.android.material.tabs.TabLayout;
@@ -43,7 +44,6 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -108,7 +108,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final String STATE_DESTIP = "DestIP";
     static final String STATE_LICONIP = "LiConIP";
     static final String STATE_REMOTE = "Remote";
-    static final String STATE_LASTSMD = "LastDevNum";
+    static final String STATE_READ_MEM = "ReadMemOk";
     static final String STATE_LASTCHNG = "LastChange";
 
     static final int STUN_RESPONCE = 0x0101;
@@ -194,7 +194,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     static final int MSG_NO_SIGNAL_ANSWER       =  0x07;
 //    static final int MSG_END_GET_COMMAND        =  0x08;
     static final int MSG_NEED_CHECK_SETTINGS    =  0x10;
-    static final int MSG_END_READMEM            =  0x09;
+    static final int READ_MEM_OK                =  0;
+    static final int NO_READ_MEM                =  1;
+    static final int PART_READ_MEM              =  2;
+//    static final int MSG_END_READMEM            =  0x09;
 
 
     ViewPager viewPager;
@@ -210,6 +213,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     TextView linkTText;
     UDPserver sUDP;
     ChangeAdapter chAdapter;
+//    LogDataAdapter logAdapter;
 
 
     Timer timer;
@@ -244,6 +248,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     public List<SensorDevice> sensors = new ArrayList<>();
     private String theme;
     private int timeout;
+    private int ltimeout;
     private boolean cardEnable;
     private boolean extDenied = false;
 
@@ -251,11 +256,13 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     private boolean noPass = false;
 
     public List<ChangedGroup> chGroups;
+//    public List<LogRecord> logData;
 
     private boolean canClearChGroup = false;
 
     public ArrayList<String> commandList;
-    private boolean readMemOk = false;
+    public int readMemOk;
+    private int attCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -324,13 +331,17 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         initiateStorage();
 
         commandList = new ArrayList<>();
-        chGroups = new ArrayList<>();
+        readMemOk = NO_READ_MEM;
 
         viewPager = findViewById(R.id.viewPager);
         roomAdapter = new RoomAdapter(getSupportFragmentManager(), config.getValues(ROOM_NAME_KEY));
         viewPager.setAdapter(roomAdapter);
 
+
+
+        chGroups = new ArrayList<>();
         chAdapter = new ChangeAdapter(this, R.layout.change_list_item, chGroups);
+
 
 
         tabLayout = findViewById(R.id.tabs);
@@ -357,7 +368,9 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         remPort = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_port", "0")));
         serial = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_set_serial", "0")));
         workWiFi = prefs.getBoolean("id_cb_WorkWiFi", false);
-        timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "500")));
+        timeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_timeout", "50")));
+        ltimeout = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_lond_timeout", "500")));
+        attCount = Integer.parseInt(Objects.requireNonNull(prefs.getString("key_repeatCount", "5")));
         extDenied = prefs.getBoolean("key_ExtMemDenied", false);
         noPass = prefs.getBoolean("id_cb_NoPass", false);
         if (isDev && noPass){
@@ -535,6 +548,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         outState.putString(STATE_DESTIP, devLocalIP);
         outState.putBoolean(STATE_WIFI, workWiFi);
         outState.putBoolean(STATE_REMOTE, remote);
+        outState.putInt(STATE_READ_MEM, readMemOk);
         outState.putParcelableArrayList(STATE_EXECDEVS, (ArrayList<? extends Parcelable>) execDevs);
         outState.putParcelableArrayList(STATE_SENSORS, (ArrayList<? extends Parcelable>) sensors);
 //        outState.putInt(STATE_LASTSMD, lastCommand);
@@ -550,6 +564,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         devLocalIP = savedInstanceState.getString(STATE_DESTIP);
         workWiFi = savedInstanceState.getBoolean(STATE_WIFI);
         remote = savedInstanceState.getBoolean(STATE_REMOTE);
+        readMemOk = savedInstanceState.getInt(STATE_READ_MEM);
         execDevs = savedInstanceState.getParcelableArrayList(STATE_EXECDEVS);
         sensors = savedInstanceState.getParcelableArrayList(STATE_SENSORS);
 //        lastCommand = savedInstanceState.getInt(STATE_LASTSMD);
@@ -571,7 +586,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         Log.i(TAG, " onPause in MainActivity " );
         if (sUDP!=null){
             byte[] outBuf = {BREAK_LINK, 0};
-            askUDP(outBuf, 0, 0);
+            askUDP(outBuf, 0, 0, false);
         }
         if (netRecieverRegistered){
             unregisterReceiver(netReciever);
@@ -645,25 +660,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     @Override
     public boolean onPrepareOptionsMenu(@NonNull Menu menu) {
-//        MenuItem item;
-        if (roomAdapter.getCount()==0){
-            menu.findItem(R.id.action_ren_room).setVisible(false);
-            menu.findItem(R.id.action_del_room).setVisible(false);
-        }else{
-            menu.findItem(R.id.action_ren_room).setVisible(true);
-            menu.findItem(R.id.action_del_room).setVisible(true);
-        }
+        menu.findItem(R.id.action_ren_room).setVisible(roomAdapter.getCount()>0);
+        menu.findItem(R.id.action_del_room).setVisible(roomAdapter.getCount()>0);
 
         menu.findItem(R.id.action_update).setVisible(netInfo != null);
+        menu.findItem(R.id.action_Learning).setVisible(execDevs.size() != 0);
 
-        if (isDev){
-            menu.findItem(R.id.action_SetPass).setVisible(true);
-            menu.findItem(R.id.action_SetSerial).setVisible(true);
-        }else{
-            menu.findItem(R.id.action_SetPass).setVisible(false);
-            menu.findItem(R.id.action_SetSerial).setVisible(false);
-        }
-
+        menu.findItem(R.id.action_SetPass).setVisible(isDev);
+        menu.findItem(R.id.action_SetSerial).setVisible(isDev);
 
         return super.onPrepareOptionsMenu(menu);
     }
@@ -742,7 +746,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 byte p2 = (byte) ((curserial >> 16) & 0xFF);
                 byte p3 = (byte) ((curserial >> 24) & 0xFF);
                 byte[] np = {SET_SERIAL, p3, p2, p1, p0};
-                if (askUDP(np, MSG_SERIAL, 0)){
+                if (askUDP(np, MSG_SERIAL, 0, false)){
                     String s = "Serial " + curserial + " set Ok";
                     Toast.makeText(getApplicationContext(), s, Toast.LENGTH_SHORT).show();
                 }
@@ -761,7 +765,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         AlertDialog.Builder dlg = new AlertDialog.Builder(this);
         EditText et = new EditText(this);
         byte[] outBuf = {READ_ALT_PREFIX, IS_HOST};
-        if (askUDP(outBuf, MSG_PREFIX, 0)) {
+        if (askUDP(outBuf, MSG_PREFIX, 0, false)) {
             int wInd = sUDP.getWaitIndex(MSG_PREFIX, 0);
             if (wInd>=0){
                 int oldPass = 0;
@@ -783,7 +787,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 byte p1 = (byte) ((newPass >> 8) & 0xFF);
                 byte p2 = (byte) ((newPass >> 16) & 0xFF);
                 byte[] np = {SET_ALT_PREFIX, p2, p1, p0};
-                if (askUDP(np, MSG_RCV_OK, 0)){
+                if (askUDP(np, MSG_RCV_OK, 0, false)){
                     String s = "Pass " + newPass + " set Ok";
                     Toast.makeText(getApplicationContext(), s, Toast.LENGTH_SHORT).show();
                 }
@@ -952,6 +956,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             }
         }
     }
+
+
 
     public void addRoom (String name){
         int ind = 1;
@@ -1141,10 +1147,10 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         devLocalIP="";
         if (noPass){
             byte[] outBuf = {ASK_IP, IS_HOST};
-            return  askUDP(outBuf, MSG_ANSW_IP, 0);
+            return  askUDP(outBuf, MSG_ANSW_IP, 0, false);
         }else{
             byte[] outBuf = {ASK_IP};
-            return  askUDP(outBuf, MSG_ANSW_IP, 0);
+            return  askUDP(outBuf, MSG_ANSW_IP, 0, false);
         }
     }
 
@@ -1290,7 +1296,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    sensCountText.setText(String.format(Locale.getDefault(), "%d", sensors.size()));
 //                   statusText.setText(R.string.connected);
                    progressLinkDevs.setProgress(0);
-                   taskReadMemory();
+//                   taskReadMemory();
                    break;
                case MSG_GOT_MAP_ADDR:
                    st = mappedIP +" : " + mappedPort;
@@ -1335,13 +1341,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                    int needCheckSetting = readInt("key_needCheckSetting");
                    if (needCheckSetting==0)
                        checkForSavedSettings();
-                   break;
-               case MSG_END_READMEM:
-                   if (readMemOk){
-                       devCountText.setText(String.format(Locale.getDefault(),"%d:", execDevs.size()));
-                   }else{
-                       devCountText.setText(String.format(Locale.getDefault(),"%d.", execDevs.size()));
-                   }
                    break;
            }
         }
@@ -1451,13 +1450,14 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
         }
     }
 
-    private void readDevMem(int nDev){
+    public boolean readDevMem(int nDev){
         int dInd = getDevIndex(nDev);
+        boolean allOk = false;
         if (dInd>=0){
             execDevs.get(dInd).clearMem();
             execDevs.get(dInd).setReadMem(false);
             byte[] askBuf = {SET_W_COMMAND, (byte) nDev, 0x05, (byte) CMD_ASK_MEM, 1, 0, (byte) 0xB0};
-            if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
+            if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA, false)){
                 int wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
                 if (wInd>=0){
                     int count = sUDP.waitBuf.get(wInd).packet[14]&0xFF;
@@ -1473,10 +1473,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                     if (blocksToRead * memBlock < memToRead){
                         blocksToRead++;
                     }
+                    boolean blockOk = true;
                     while (blocksToRead>0){
                         int bytesToRead = Math.min(memBlock, memToRead);
                         byte[] rdMem = {SET_W_COMMAND, (byte) nDev, 0x05, (byte) CMD_ASK_MEM, (byte) bytesToRead, (byte) ((current>>8)&0xFF), (byte) (current&0xFF)};
-                        if (askUDP(rdMem, MSG_RE_SENT_W, MSG_EEP_DATA)){
+                        if (askUDP(rdMem, MSG_RE_SENT_W, MSG_EEP_DATA, true)){
                             wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
                             if (wInd>=0){
                                 int gotCnt = sUDP.waitBuf.get(wInd).packet[11]&0xFF;
@@ -1484,127 +1485,21 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                 byte[] buf = Arrays.copyOfRange(sUDP.waitBuf.get(wInd).packet, 14, gotCnt+14);
                                 execDevs.get(dInd).addMem(buf, addr, gotCnt);
                             }
-                        }
+                        }else blockOk=false;
                         current +=bytesToRead;
                         memToRead -=bytesToRead;
                         blocksToRead--;
                     }
+                    allOk=blockOk;
                 }
-            }else {
-                readMemOk = false;
             }
-        }
+         }
+        return allOk;
     }
 
-    /*
-
-    private void getModulesCommands(){
-        pBar.setVisibility(View.VISIBLE);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                sucsessReadMem = true;
-                for (int di = 0; di < execDevs.size(); di++) {
-                    execDevs.get(di).clearMem();
-                    execDevs.get(di).setReadMem(false);
-                    byte[] askBuf = {SET_W_COMMAND, (byte) execDevs.get(di).getDevNum(), 0x05, (byte) CMD_ASK_MEM, 1, 0, (byte) 0xB0};
 
 
-
-                    if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
-//                        int count = sUDP.getWBbyte(7);
-                        int count = 0;
-                        int wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
-                        if (wInd>=0){
-                           count = sUDP.waitBuf.get(wInd).packet[14]&0xFF;
-                        }
-                        if (count == 0xFF) count = 0;
-                        if (count > 67) count = 67;     // max command count;
-                        if (count>0){
-//                            execDevs.get(di).addMem(new byte[]{(byte) count});
-                            int bytesToRead = count*5;
-                            int offs = 0xB0+1;
-                            while ((bytesToRead>0)&&(sucsessReadMem)){
-                                int countRead;
-                                if ((bytesToRead / 128)>0){
-                                    countRead = 128;
-                                }else{
-                                    countRead = bytesToRead % 128;
-                                }
-                                askBuf[4] = (byte) countRead;
-                                askBuf[5] = (byte) (offs >> 8);
-                                askBuf[6] = (byte) (offs & 0xFF);
-                                if (askUDP(askBuf, MSG_RE_SENT_W, MSG_EEP_DATA)){
-                                    wInd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_EEP_DATA);
-                                    if (wInd>=0){
-                                        byte[] eep = Arrays.copyOfRange(sUDP.waitBuf.get(wInd).packet, 14, 14+countRead);
-//                                        execDevs.get(di).addMem(eep);
-                                    }
-//                                    byte[] eep = Arrays.copyOfRange(sUDP.getWB(), 7, 7+countRead);
-                                }else{
-                                    sucsessReadMem = false;
-                                }
-                                bytesToRead -= countRead;
-                                offs += countRead;
-                            }
-                        }
-                    }else{
-                        sucsessReadMem = false;
-                    }
-                }
-                Bundle bundle = new Bundle();
-                Message msg = handler.obtainMessage();
-                bundle.putInt("ThreadEnd", MSG_END_GET_COMMAND);
-                msg.setData(bundle);
-                handler.sendMessage(msg);
-
-            }
-        }).start();
-    }
-
-    private void saveCommandsFile(){
-
-        String fileName = getApplicationContext().getFilesDir().toString() + "/Commands";
-        try {
-            FileWriter writer = new FileWriter(fileName);
-            for (int i = 0; i < list.size(); i++) {
-                String str = list.get(i);
-                writer.write(str);
-//                if (i<list.size()-1){         //если надо чтоб пустую строку не выводило в конце
-                    writer.write("\n");
-//                }
-            }
-            writer.close();
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString("key_commands", "Commands");
-            editor.apply();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-*/
-
-    private void taskReadMemory() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                readMemory();
-
-            }
-        }).start();
-    }
-
-    public void readMemory(){
-        readMemOk = true;
-        for (int i = 0; i < execDevs.size(); i++) {
-            readDevMem(execDevs.get(i).getDevNum());
-        }
-        Bundle bundle = new Bundle();
-        Message msg = handler.obtainMessage();
-        bundle.putInt("ThreadEnd", MSG_END_READMEM);
-        msg.setData(bundle);
-        handler.sendMessage(msg);
-
+    public void createCommandList(){
         ArrayList<Integer> cmdAr = new ArrayList<>();
         for (int di = 0; di < execDevs.size(); di++) {
             int count = execDevs.get(di).getCmdCount();
@@ -1629,7 +1524,6 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
             }
             commandList.add(commandList.size(), stCmd.toString());
         }
-
     }
 
 
@@ -1644,11 +1538,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 byte[] sens = {};
                 curserial=0;
                 byte[] outBuf = {(byte) CMD_ASK_TYPE};
-                askUDP(outBuf, MSG_DEV_TYPE, 0);
+                askUDP(outBuf, MSG_DEV_TYPE, 0, false);
 
 
                 outBuf[0] = ASK_COUNT_DEVS;
-                if (askUDP(outBuf, MSG_LIST_DEVS, 0)){
+                if (askUDP(outBuf, MSG_LIST_DEVS, 0, false)){
                     int ind = sUDP.getWaitIndex(MSG_LIST_DEVS, 0);
                     if (ind>=0){
                         int devsCount = sUDP.waitBuf.get(ind).packet[8];
@@ -1660,7 +1554,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
 
                 outBuf[0] = ASK_COUNT_SENSORS;
-                if (askUDP(outBuf, MSG_LIST_SENSORS, 0)){
+                if (askUDP(outBuf, MSG_LIST_SENSORS, 0, false)){
                     int ind = sUDP.getWaitIndex(MSG_LIST_SENSORS, 0);
                     if (ind>=0){
                         int sensCount = sUDP.waitBuf.get(ind).packet[8];
@@ -1673,7 +1567,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
                 for (byte dev : devs) {
                     byte[] bufCount = {SET_W_COMMAND, (byte) dev, 2, (byte) CMD_ASK_TYPE};
-                    askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE);
+                    askUDP(bufCount, MSG_RE_SENT_W, MSG_DEV_TYPE, false);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -1684,7 +1578,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
                 for (byte sen : sens) {
                     byte[] bufCount = {SET_W_COMMAND, (byte) sen, 2, (byte) CMD_ASK_DEVICE_KIND};
-                    if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND)) {
+                    if (askUDP(bufCount, MSG_RE_SENT_W, MSG_DEVICE_KIND, false)) {
                         int snd = sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_DEVICE_KIND);
                         if (snd >= 0) {
                             int devN = sUDP.waitBuf.get(snd).packet[8];
@@ -1699,7 +1593,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                                 }
                             });
                             byte[] bufState = {SET_W_COMMAND, (byte) devN, 2, (byte) CMD_ASK_SENSOR_STATE};
-                            if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE)) {
+                            if (askUDP(bufState, MSG_RE_SENT_W, MSG_SENSOR_STATE, false)) {
                                 sUDP.getWaitIndex(MSG_RE_SENT_W, MSG_SENSOR_STATE);
                             }
 
@@ -1719,11 +1613,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 buffTime[6] = (byte) cl.get(Calendar.HOUR_OF_DAY);
                 buffTime[7] = (byte) cl.get(Calendar.MINUTE);
                 buffTime[8] = (byte) cl.get(Calendar.SECOND);
-                askUDP(buffTime, MSG_RCV_OK, 0);
+                askUDP(buffTime, MSG_RCV_OK, 0, false);
 
                 for (int i = 0; i <execDevs.size() ; i++) {
                     byte[] bufState = {SET_W_COMMAND, (byte) execDevs.get(i).getDevNum(), 2, (byte) CMD_ASK_STATE};
-                    askUDP(bufState, MSG_RE_SENT_W, MSG_STATE);
+                    askUDP(bufState, MSG_RE_SENT_W, MSG_STATE, false);
                 }
                 Log.i(TAG, "Send MSG_END_CONNECTTASK, Exec = " + execDevs.size() + ", Sns = " + sensors.size());
                 Bundle bundle = new Bundle();
@@ -1868,18 +1762,24 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
     public void sendCommand(int cmd){
         if (connected){
             byte[] bufState = {SET_W_COMMAND, BC_Dev, 4, (byte) CMD_SEND_COMMAND, (byte) ((cmd>>8)&0xFF), (byte) (cmd&0xFF)};
-            if (!askUDP(bufState, MSG_RCV_OK, 0))
+            if (!askUDP(bufState, MSG_RCV_OK, 0, false))
                 Toast.makeText(this, "Not confirmed", Toast.LENGTH_SHORT).show();
         }else{
             Toast.makeText(this, "No connection", Toast.LENGTH_SHORT).show();
         }
     }
 
-    public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd) {
+    public boolean askUDP(byte[] inBuf, int hostCmd, int devCmd, boolean longTimeOut) {
         if (netInfo!=null){
+            int maxTime;
+            if (longTimeOut){
+                maxTime = ltimeout;
+            }else {
+                maxTime = timeout;
+            }
             if (hostCmd==MSG_RCV_OK)
                 sUDP.incCurrentID();
-            for (int i = 1; i <4 ; i++) {
+            for (int i = 1; i <attCount ; i++) {
                 if (hostCmd==MSG_RCV_OK){
                     sUDP.send(inBuf, (byte) i, hostCmd, devCmd);
                 }else {
@@ -1890,7 +1790,8 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 int tm = 0;
                 int pInd=-1;
                 boolean found = false;
-                while (((pInd<0)||(!found))&&(tm<timeout)){
+//                while (((pInd<0)||(!found))&&(tm<timeout)){
+                while ((!found)&&(tm<maxTime)){
                     try {
                         pInd = sUDP.getWaitIndex(hostCmd, devCmd);
                         if (pInd>=0)
@@ -1903,7 +1804,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
                 }
                 if (pInd>=0)
                     sUDP.waitBuf.get(pInd).received = false;
-                if (tm<timeout){
+                if (tm<maxTime){
                     Log.i(TAG, "askUDP " +byteArrayToHex(inBuf, inBuf.length)+ " for ("+Integer.toHexString(hostCmd)+", "+Integer.toHexString(devCmd)+"), time = "+tm+"mS"+", att = "+i);
                     return true;
                 }else{
@@ -1918,7 +1819,7 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
     boolean askSigUDP(byte[] inBuf) {
         if (netInfo!=null){
-            for (int i = 1; i <4 ; i++) {
+            for (int i = 1; i <attCount ; i++) {
                 sUDP.incCurrentID();
                 sUDP.sendToSignal(inBuf);
                 int tm = 0;
@@ -2173,9 +2074,11 @@ public class MainActivity extends AppCompatActivity implements UDPserver.UDPlist
 
         if (groups.get(position).isOnState()){
             img.setBackgroundResource(R.drawable.sq_btn_activ_color);
+            img.setContentDescription(getString(R.string.lightOn));
             tnDev.setText(R.string.lightOn);
         }else{
             img.setBackgroundResource(R.drawable.sq_btn_color);
+            img.setContentDescription(getString(R.string.lightOff));
             tnDev.setText(R.string.lightOff);
         }
 

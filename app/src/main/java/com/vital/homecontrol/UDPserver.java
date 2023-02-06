@@ -102,6 +102,7 @@ class UDPserver {
                                 byte[] buf = {(byte) MSG_RCV_OK};
                                 Log.i(TAG, " In: sentOk to "+(inData[4]&0xFF));
                                 send(buf, (byte) NO_CONFIRM, 0, 0);
+
                             }
                             if ((inData[3]&0xFF)!=lastID){
 //                                    workBuff = Arrays.copyOfRange(inData,7,len);
@@ -121,7 +122,6 @@ class UDPserver {
                                 Bundle bundle = new Bundle();
                                 Message msg = handler.obtainMessage();
                                 bundle.putByteArray("NewPacket", Arrays.copyOf(inData, len));
-//                                    bundle.putInt("NewPacketID", pIndex);
                                 msg.setData(bundle);
                                 handler.sendMessage(msg);
 

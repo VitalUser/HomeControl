@@ -94,6 +94,7 @@
                 android:layout_alignParentBottom="true"
                 android:layout_marginStart="20dp"
                 android:layout_marginBottom="20dp"
+                android:contentDescription="@string/scale"
                 android:textColor="@android:color/holo_blue_light" />
 
             <Button
@@ -104,6 +105,7 @@
                 android:layout_alignParentBottom="true"
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="20dp"
+                android:contentDescription="@string/exit"
                 android:background="@android:color/transparent"
                 android:textColor="@android:color/holo_red_dark" />
 

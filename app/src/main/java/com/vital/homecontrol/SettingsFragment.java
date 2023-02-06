@@ -63,6 +63,12 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         EditTextPreference timeout = (EditTextPreference) findPreference("key_timeout");
         timeout.setSummary(timeout.getText());
 
+        EditTextPreference ltimeout = (EditTextPreference) findPreference("key_lond_timeout");
+        ltimeout.setSummary(ltimeout.getText());
+
+        EditTextPreference attCount = (EditTextPreference) findPreference("key_repeatCount");
+        attCount.setSummary(attCount.getText());
+
         ListPreference theme = (ListPreference) findPreference("key_theme");
         theme.setSummary(theme.getEntry());
 
@@ -157,6 +163,8 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
                 theme.setSummary(theme.getEntry());
                 break;
             case "key_timeout":
+            case "key_lond_timeout":
+            case "key_repeatCount":
             case "key_colsCount_P":
             case "key_rowsCount_P":
             case "key_colsCount_L":

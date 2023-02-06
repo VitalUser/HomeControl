@@ -68,9 +68,23 @@
              android:title="@string/timeout"
              android:inputType="number"
              android:selectAllOnFocus="true"
+             android:defaultValue="50"/>
+
+         <EditTextPreference
+             android:key="key_lond_timeout"
+             android:title="@string/longtimeout"
+             android:inputType="number"
+             android:selectAllOnFocus="true"
              android:defaultValue="500"/>
 
-     </PreferenceCategory>
+        <EditTextPreference
+            android:key="key_repeatCount"
+            android:title="@string/repeatCount"
+            android:inputType="number"
+            android:selectAllOnFocus="true"
+            android:defaultValue="5"/>
+
+    </PreferenceCategory>
 
     <!--
     <PreferenceScreen

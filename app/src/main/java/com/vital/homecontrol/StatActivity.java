@@ -121,6 +121,8 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
         valPeriod = findViewById(R.id.val_period);
         String stp = DateUtils.formatElapsedTime((long) (period*minStatPeriod));
         valPeriod.setText(stp);
+
+        /*
         valPeriod.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -178,6 +180,7 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
 
             }
         });
+        */
 
         DataPoint[] data = new DataPoint[inbuf.size()];
         for (int i = 0; i <inbuf.size() ; i++) {
@@ -377,19 +380,6 @@ public class StatActivity extends AppCompatActivity implements UDPserver.UDPlist
         return (att<100);
     }
     */
-
-    private void sndUDP(final byte[] inBuf){
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int curID = sUDP.getCurrentID();
-                curID++;
-                sUDP.setCurrentID((byte) curID);
-                sUDP.send(inBuf, (byte) NO_CONFIRM, 0, 0);
-                Log.i(TAG, "Send without confirm: "+MainActivity.byteArrayToHex(inBuf, inBuf.length));
-            }
-        }).start();
-    }
 
 
     @Override

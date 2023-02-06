@@ -67,7 +67,7 @@
     <string name="period">Counting period</string>
     <string name="min_graph">Graph minimum</string>
     <string name="max_graph">Graph maximum</string>
-    <string name="timeout">Timeout</string>
+    <string name="timeout">Short timeout, mS</string>
     <string name="buttons">Buttons</string>
     <string name="padding">Paddings</string>
     <string name="port">Remote Port</string>
@@ -128,4 +128,21 @@
     <string name="lightOff">Light is OFF</string>
     <string name="annotation_learn">Shown here are the groups of lights that changed their state when they were last switched. By acting on the wall switches, you can identify each of the groups and give it a name.</string>
     <string name="learning">Identify of lightgroups</string>
+    <string name="close">Close</string>
+    <string name="noteLoad">It is recommended to download a list of commands from devices</string>
+    <string name="noteLoadpart">The list of commands is not fully loaded. \nrepeat?</string>
+    <string name="repeatCount">Link attempts count</string>
+    <string name="longtimeout">Long TimeOut, mS</string>
+    <string name="load">Load</string>
+    <string name="repeat">Repeat</string>
+    <string name="attention">Attention</string>
+    <string name="noteNotLoad">Failed to load command list. \nrepeat?</string>
+    <string name="room_zone">Room zone</string>
+    <string name="lamp">Lamp</string>
+    <string name="enter_command_number">Enter command number</string>
+    <string name="select">Select</string>
+    <string name="dot">.</string>
+    <string name="copy_current_serial">Copy current serial</string>
+    <string name="device_serial">Device serial</string>
+    <string name="exit">Exit</string>
 </resources>

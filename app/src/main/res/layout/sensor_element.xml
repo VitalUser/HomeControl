@@ -4,6 +4,7 @@
     android:id="@+id/sns_element"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:baselineAligned="true"
     android:orientation="horizontal">
 
     <LinearLayout
@@ -17,15 +18,15 @@
             android:id="@+id/sns_num"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="Sensor number"
+            android:text=""
             android:layout_weight="6"
-            android:textSize="8dp"/>
+            android:textSize="11sp"/>
 
         <TextView
             android:id="@+id/sns_text"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="Sensor text"
+            android:text=""
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:layout_weight="2"/>
     </LinearLayout>
@@ -40,7 +41,7 @@
             android:id="@+id/sns_data"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="00"
+            android:text=""
             android:textAppearance="@style/TextAppearance.AppCompat.Large"
             android:gravity="center"/>
     </LinearLayout>

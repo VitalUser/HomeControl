@@ -10,10 +10,11 @@
     <Button
         android:id="@+id/ctr_button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_weight="1"
         android:textAppearance="@style/TextAppearance.AppCompat.Caption"
         android:text=""
+        android:contentDescription="@string/button"
         android:background="@drawable/sq_btn_color"/>
 
     <!--

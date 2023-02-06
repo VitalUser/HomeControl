@@ -5,6 +5,8 @@ package com.vital.homecontrol;
 import android.annotation.SuppressLint;
 //import android.app.AlertDialog;
 import androidx.appcompat.app.AlertDialog;
+
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipDescription;
@@ -15,6 +17,8 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import androidx.annotation.NonNull;
@@ -36,6 +40,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -62,6 +67,9 @@ import static com.vital.homecontrol.MainActivity.MSG_OUT_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_RE_SENT_W;
 import static com.vital.homecontrol.MainActivity.MSG_SENSOR_STATE;
 import static com.vital.homecontrol.MainActivity.MSG_STATE;
+import static com.vital.homecontrol.MainActivity.NO_READ_MEM;
+import static com.vital.homecontrol.MainActivity.PART_READ_MEM;
+import static com.vital.homecontrol.MainActivity.READ_MEM_OK;
 import static com.vital.homecontrol.MainActivity.SET_W_COMMAND;
 
 
@@ -151,6 +159,7 @@ public class PageFragment extends Fragment {
     private int orientation;
 
     private final List<ControlElement> controls = new ArrayList<>();
+    private ProgressBar loadCmdProgress;
 
     public static PageFragment newInstance(int page) {
         Bundle args = new Bundle();
@@ -343,9 +352,6 @@ public class PageFragment extends Fragment {
         btn.setTag(R.id.tbl_col, col);
         btn.setTag(R.id.tbl_row, row);
 
-//        ((GradientDrawable)btn.getBackground().getCurrent()).setCornerRadius(50);
-
-//        btn.setText(String.format(Locale.getDefault(),"%02d%03d", mPage, num));
         btn.setText(controls.get(cInd).getText());
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -356,23 +362,8 @@ public class PageFragment extends Fragment {
                 act.sendCommand(cmd);
             }
         });
-
-
-
         btn.setOnLongClickListener(longCL);
-
-//        TextView text = cellButton.findViewById(R.id.ctr_text);
-//        text.setText(controls.get(cInd).getText());
-
         setButtonVisualState(btn, cInd);
-        /*
-        int devInd = act.getDevIndex(controls.get(cInd).getNumDev());
-        if (devInd>=0){
-            int outState = act.execDevs.get(devInd).getOutState();
-        }
-
-         */
-
         return cellButton;
     }
 
@@ -393,10 +384,36 @@ public class PageFragment extends Fragment {
         sensValue.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                int ind = getControlIndexByNum(num);
-//                int cmd = controls.get(ind).getCmdNum();
-//                Log.i(TAG, " button: "+num);
-//                act.sendCommand(cmd);
+                final int btnNum = (int) view.getTag(R.id.ctr_num);
+                final int cInd = getControlIndexByNum(btnNum);
+
+                int typ = controls.get(cInd).getSensType();
+                int dNum = controls.get(cInd).getNumDev();
+                int model = controls.get(cInd).getSensModel();
+                act.pBar.setVisibility(View.VISIBLE);
+                final int stSensInd = act.getSnsIndex(dNum);
+
+                if (stSensInd>=0){
+                    byte[] stat = {};
+                    byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
+                    if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC, true)){
+                        int wInd = act.sUDP.getWaitIndex(MSG_RE_SENT_W, CMD_MSG_STATISTIC);
+                        if (wInd>=0){
+                            stat = Arrays.copyOfRange(act.sUDP.waitBuf.get(wInd).packet, 7, act.sUDP.waitBuf.get(wInd).packet.length) ;
+                            Bundle bundle = new Bundle();
+                            bundle.putByteArray("Data", stat);
+                            bundle.putInt("Model", model);
+                            StatFragment statFr = new StatFragment();
+                            statFr.setArguments(bundle);
+                            if (getFragmentManager() != null) {
+                                statFr.show(getFragmentManager(), StatFragment.TAG);
+                            }
+                        }
+                    }else{
+                        Toast.makeText(getContext(), "Error, Try again", Toast.LENGTH_SHORT).show();
+                    }
+                }
+                act.pBar.setVisibility(View.INVISIBLE);
             }
         });
 
@@ -412,11 +429,6 @@ public class PageFragment extends Fragment {
             sensValue.setText(getString(R.string.no_sns));
         }
 
-
-//        TextView text = cellSensor.findViewById(R.id.ctr_text);
-//        text.setText(controls.get(cInd).getText());
-
-
         return cellSensor;
     }
 
@@ -426,7 +438,7 @@ public class PageFragment extends Fragment {
         public boolean onLongClick(View vw) {
 
             Vibrator v = (Vibrator) act.getSystemService(Context.VIBRATOR_SERVICE);
-            v.vibrate(10);
+            v.vibrate(20);
             View view = (View) vw.getParent();
             touchCol = (int) vw.getTag(R.id.tbl_col);
             touchRow = (int) vw.getTag(R.id.tbl_row);
@@ -665,7 +677,7 @@ public class PageFragment extends Fragment {
 
                 }
 //                    menuInflater.inflate(R.menu.sensor_context_menu, menu);
-                menu.add(0, M_SHOW_STAT*10000+numSns, 5, getString(R.string.msg_statistic));
+//                menu.add(0, M_SHOW_STAT*10000+numSns, 5, getString(R.string.msg_statistic));
                 menu.add(0, M_REN_SNS*10000+numSns, 1, getString(R.string.msg_rename));
                 menu.add(0, M_DEL_SNS*10000+numSns, 9, getString(R.string.btn_item_Del));
                 menu.add(0, M_CANCEL*10000+numSns, 10, getString(R.string.cancel));
@@ -841,7 +853,7 @@ public class PageFragment extends Fragment {
             case M_REN_BTN:
 //                cInd = getControlIndexByNum(btnNum);
                 if (cInd>=0){
-                    dlg = new AlertDialog.Builder(getActivity());
+                    dlg = new AlertDialog.Builder(act);
                     final EditText input = new EditText(getActivity());
                     input.setSelectAllOnFocus(true);
                     String srcText = controls.get(cInd).getText();
@@ -927,96 +939,81 @@ public class PageFragment extends Fragment {
             case M_SET_CMD:
 //                cInd = getControlIndexByNum(btnNum);
 
-                cmds.clear();
-                for (int i = 0; i < act.commandList.size(); i++) {
-                    StringReader rd = new StringReader(act.commandList.get(i));
-                    try {
-                        cmds.load(rd);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+                // https://stackoverflow.com/questions/26086848/android-dont-dismiss-alertdialog-after-clicking-positivebutton
+
+                if (act.readMemOk>READ_MEM_OK){
+                    ProgressDialog pd = (ProgressDialog) new ProgressDialog(act);
+                    pd.setTitle(R.string.attention);
+                    pd.setMax(act.execDevs.size());
+                    if (act.readMemOk==NO_READ_MEM){
+                        pd.setMessage(getString(R.string.noteLoad));
+                    }else{
+                        pd.setMessage(getString(R.string.noteLoadpart));
                     }
-                }
-                int cmdCount = cmds.size();
+                    pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
 
-                /*
-                String cmdf = prefs.getString("key_commands", "");
-                if (!Objects.equals(cmdf, "")){
-                    assert cmdf != null;
-                    File fileC = new File(getActivity().getApplicationContext().getFilesDir().toString(), cmdf);
-                    if (fileC.exists()){
-                        try {
-                            cmds.load(new FileInputStream(fileC));
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
 
-                    }
+                    pd.setButton(DialogInterface.BUTTON_POSITIVE, getText(R.string.load), (DialogInterface.OnClickListener) null);
+                    pd.setButton(DialogInterface.BUTTON_NEGATIVE, getText(R.string.close), (DialogInterface.OnClickListener) null);
 
-                }
-                */
-                dlg = new AlertDialog.Builder(getActivity());
-                if (cmdCount>0){
-                    View view = getLayoutInflater().inflate(R.layout.layout_cmd_dlg, vGroup, false);
-                    dlg.setTitle(getString(R.string.get_cmd));
-//                    ListView lv = new ListView(getActivity());
-                    ListView lv = view.findViewById(R.id.cmd_list);
-                    final EditText cmdNum = view.findViewById(R.id.edit_cmd_text);
-                    txt = String.valueOf(controls.get(cInd).getCmdNum());
-                    cmdNum.setText(txt);
 
-                    String[] inList = cmds.stringPropertyNames().toArray(new String[0]);
-                    final ArrayList<String> comList = new ArrayList<>(Arrays.asList(inList));
-                    final CmdAdapter adapter;
-
-                    Collections.sort(comList);
-                    adapter = new CmdAdapter(getActivity().getApplicationContext(), R.layout.cmd_list_item, comList);
-                    lv.setAdapter(adapter);
-                    adapter.setSelect(comList.indexOf(String.format(Locale.getDefault(), "%05d", controls.get(cInd).getCmdNum())));
-//                    dlg.setView(lv);
-                    dlg.setView(view);
-                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    pd.setOnShowListener(new DialogInterface.OnShowListener() {
                         @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
-                            act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
+                        public void onShow(DialogInterface dialogInterface) {
+                            Button negBtn = pd.getButton(ProgressDialog.BUTTON_NEGATIVE);
+                            negBtn.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    act.createCommandList();
+                                    showCommands(createCommandsPrefs(), cInd);
+                                    pd.dismiss();
+                                }
+                            });
+                            Button posBtn = pd.getButton(ProgressDialog.BUTTON_POSITIVE);
+                            posBtn.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    pd.setProgress(0);
+                                    posBtn.setEnabled(false);
+                                    negBtn.setEnabled(false);
+                                    @SuppressLint("HandlerLeak") LoadProgressThread pt = new LoadProgressThread(new Handler(){
+                                        public void handleMessage(@NonNull Message msg)
+                                        {
+                                            int loaded = msg.arg1;
+                                            int state = msg.arg2;
+                                            pd.setProgress(loaded);
+                                            if (state>0){
+                                                if (loaded!=act.execDevs.size()){
+                                                    if (loaded==0){
+                                                        pd.setMessage(getString(R.string.noteNotLoad) );
+                                                        posBtn.setText(R.string.load);
+                                                        act.readMemOk=NO_READ_MEM;
+                                                    }else{
+                                                        pd.setMessage(getString(R.string.noteLoadpart));
+                                                        posBtn.setText(R.string.repeat);
+                                                        act.readMemOk=PART_READ_MEM;
+                                                    }
+                                                    posBtn.setEnabled(true);
+                                                    negBtn.setEnabled(true);
+                                                }else {
+                                                    act.readMemOk=READ_MEM_OK;
+                                                    act.createCommandList();
+                                                    showCommands(createCommandsPrefs(), cInd);
+                                                    pd.dismiss();
+                                                }
+                                            }
+                                        }
+                                    });
+                                    pt.start();
+                                }
+                            });
                         }
                     });
 
-                    lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                        @Override
-                        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                            adapter.setSelect(position);
-                            adapter.notifyDataSetChanged();
-                            cmdNum.setText(comList.get(adapter.getSelect()));
-                        }
-                    });
+                    pd.show();
                 }else{
-                    dlg.setTitle(getString(R.string.enter_cmd));
-                    final EditText cmdNum = new EditText(getActivity());
-                    cmdNum.setSelectAllOnFocus(true);
-                    cmdNum.setInputType(InputType.TYPE_CLASS_NUMBER);
-                    txt = String.valueOf(controls.get(cInd).getCmdNum());
-                    cmdNum.setText(txt);
-                    dlg.setView(cmdNum);
-                    dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
-                            act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
-                        }
-                    });
+                    showCommands(createCommandsPrefs(), cInd);
                 }
-
-                dlg.setNegativeButton(getText(R.string.cancel), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        dialogInterface.cancel();
-                    }
-                });
-
-//                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-                dlg.show();
-
             return true;
 
 
@@ -1200,6 +1197,7 @@ public class PageFragment extends Fragment {
                 }
                 return true;
 
+                /*
             case M_SHOW_STAT:
                 int typ = controls.get(cInd).getSensType();
                 int dNum = controls.get(cInd).getNumDev();
@@ -1210,7 +1208,7 @@ public class PageFragment extends Fragment {
                 if (stSensInd>=0){
                     byte[] stat = {};
                     byte[] buf = {SET_W_COMMAND, (byte) dNum, 3, (byte) CMD_ASK_STATISTIC, (byte) typ};
-                    if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC)){
+                    if (act.askUDP(buf, MSG_RE_SENT_W, CMD_MSG_STATISTIC, true)){
                         int wInd = act.sUDP.getWaitIndex(MSG_RE_SENT_W, CMD_MSG_STATISTIC);
                         if (wInd>=0){
                             stat = Arrays.copyOfRange(act.sUDP.waitBuf.get(wInd).packet, 7, act.sUDP.waitBuf.get(wInd).packet.length) ;
@@ -1229,6 +1227,7 @@ public class PageFragment extends Fragment {
                 }
                 act.pBar.setVisibility(View.INVISIBLE);
                 return true;
+                */
 
             case M_DEL_SNS:
 //                cInd = getControlIndexByNum(btnNum);
@@ -1258,7 +1257,6 @@ public class PageFragment extends Fragment {
 
                 return true;
 
-//----------------------------------------------------------------END---------------------------------------------------------------------
 
             case M_CANCEL:
                 return true;
@@ -1266,6 +1264,112 @@ public class PageFragment extends Fragment {
                 return super.onContextItemSelected(item);
         }
     }
+
+    private class LoadProgressThread extends Thread{
+        Handler mHandler;
+        int loaded;
+
+        LoadProgressThread(Handler handler){
+            mHandler = handler;
+        }
+
+        public void run(){
+            loaded = 0;
+            for (int ind = 0; ind < act.execDevs.size(); ind++) {
+                if (act.readDevMem(act.execDevs.get(ind).getDevNum())){
+                    loaded++;
+                    Message msg = mHandler.obtainMessage();
+                    msg.arg1 = loaded;
+                    msg.arg2 = 0;
+                    mHandler.sendMessage(msg);
+                }
+            }
+            Message msg = mHandler.obtainMessage();
+            msg.arg1 = loaded;
+            msg.arg2 = 1;
+            mHandler.sendMessage(msg);
+        }
+    }
+
+    private void showCommands(int cmdCount, int cInd){
+        final int btnNum = (int) selectedView.getTag(R.id.ctr_num);
+        final String suff = String.format(Locale.getDefault(), "N%02d%03d", mPage, btnNum);
+        AlertDialog.Builder dlg = new AlertDialog.Builder(act);
+        if (cmdCount>0){
+            View view = getLayoutInflater().inflate(R.layout.layout_cmd_dlg, vGroup, false);
+            dlg.setTitle(getString(R.string.get_cmd));
+//                    ListView lv = new ListView(getActivity());
+            ListView lv = view.findViewById(R.id.cmd_list);
+            final EditText cmdNum = view.findViewById(R.id.edit_cmd_text);
+            cmdNum.setText(String.valueOf(controls.get(cInd).getCmdNum()));
+
+            String[] inList = cmds.stringPropertyNames().toArray(new String[0]);
+            final ArrayList<String> comList = new ArrayList<>(Arrays.asList(inList));
+            final CmdAdapter adapter;
+
+            Collections.sort(comList);
+            adapter = new CmdAdapter(act.getApplicationContext(), R.layout.cmd_list_item, comList);
+            lv.setAdapter(adapter);
+            adapter.setSelect(comList.indexOf(String.format(Locale.getDefault(), "%05d", controls.get(cInd).getCmdNum())));
+//                    dlg.setView(lv);
+            dlg.setView(view);
+            dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
+                    act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
+                }
+            });
+
+            lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    adapter.setSelect(position);
+                    adapter.notifyDataSetChanged();
+                    cmdNum.setText(comList.get(adapter.getSelect()));
+                }
+            });
+        }else{
+            dlg.setTitle(getString(R.string.enter_cmd));
+            final EditText cmdNum = new EditText(getActivity());
+            cmdNum.setSelectAllOnFocus(true);
+            cmdNum.setInputType(InputType.TYPE_CLASS_NUMBER);
+            cmdNum.setText(String.valueOf(controls.get(cInd).getCmdNum()));
+            dlg.setView(cmdNum);
+            dlg.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    controls.get(cInd).setCmdNum(Integer.parseInt(cmdNum.getText().toString()));
+                    act.saveInt(BTN_CMD + suff, Integer.parseInt(cmdNum.getText().toString()));
+                }
+            });
+        }
+
+        dlg.setNegativeButton(getText(R.string.cancel), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+            }
+        });
+
+//                Objects.requireNonNull(dlg.show().getWindow()).setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        dlg.show();
+    }
+
+    private int createCommandsPrefs(){
+        cmds.clear();
+        for (int i = 0; i < act.commandList.size(); i++) {
+            StringReader rd = new StringReader(act.commandList.get(i));
+            try {
+                cmds.load(rd);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return  cmds.size();
+    }
+
+//----------------------------------------------------------------END---------------------------------------------------------------------
 
     BroadcastReceiver udpReciever = new BroadcastReceiver() {
 

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Home control</string>
-    <string name="setting">Установки</string>
+    <string name="setting">Настройки</string>
     <string name="add_page">Добавить комнату</string>
     <string name="del_page">Удалить комнату</string>
     <string name="ren_page">Переименовать комнату</string>
@@ -67,7 +67,7 @@
     <string name="period">Период отсчетов</string>
     <string name="min_graph">Минимум графика</string>
     <string name="max_graph">Максимум графика</string>
-    <string name="timeout">Таймаут, мС</string>
+    <string name="timeout">Короткий таймаут, мС</string>
     <string name="buttons">Кнопки</string>
     <string name="padding">Отступ</string>
     <string name="port">Удаленный Порт</string>
@@ -128,4 +128,21 @@
     <string name="lightOff">Выключено:</string>
     <string name="annotation_learn">Здесь отображаются группы света, изменившие свое состояние при последнем переключении. Воздействуя на настенные выключатели можно идентифицировать каждую из групп и дать ей название</string>
     <string name="learning">Определить группы света</string>
+    <string name="close">Закрыть</string>
+    <string name="noteLoad">Рекомендуется загрузить с устройств список команд</string>
+    <string name="noteLoadpart">Список команд загружен не полностью. \nповторить?</string>
+    <string name="repeatCount">Количество попыток соединения</string>
+    <string name="longtimeout">Долгий Таймаут, мС</string>
+    <string name="load">Загрузить</string>
+    <string name="repeat">Повторить</string>
+    <string name="attention">Внимание</string>
+    <string name="noteNotLoad">Не удалось загрузить список команд \nповторить?</string>
+    <string name="room_zone">Комнаты</string>
+    <string name="lamp">Группа света</string>
+    <string name="enter_command_number">Укажите номер команды</string>
+    <string name="select">Выберите</string>
+    <string name="dot">.</string>
+    <string name="copy_current_serial">Скопировать серийный номер текущего устройства</string>
+    <string name="device_serial">Ввести серийный номер устройства</string>
+    <string name="exit">Выход</string>
 </resources>

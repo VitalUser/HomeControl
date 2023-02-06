@@ -17,7 +17,8 @@
         android:layout_height="wrap_content"
         android:inputType="number"
         android:text=""
+        android:hint="@string/enter_command_number"
         android:layout_weight="1"
-         />
+        android:importantForAutofill="no" />
 
 </LinearLayout>

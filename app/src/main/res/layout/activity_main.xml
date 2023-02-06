@@ -18,6 +18,7 @@
             android:id="@+id/tabs"
             android:layout_width="match_parent"
             android:layout_height="40dp"
+            android:contentDescription="@string/room_zone"
             app:tabMode="scrollable">
 
         </com.google.android.material.tabs.TabLayout>
@@ -27,6 +28,7 @@
             android:layout_height="0dp"
             android:keepScreenOn="true"
             android:layout_weight="1"
+            android:contentDescription="@string/room_zone"
             android:id="@+id/viewPager">
 
         </androidx.viewpager.widget.ViewPager>
